@@ -16,6 +16,21 @@ $ oa collection upload leak_a ./documents --parallel 4
 
 ## Installation
 
+### Homebrew (macOS and Linux)
+
+```sh
+brew install 0x46616c6b/tap/oa
+```
+
+This installs the binary and the shell completions for bash, zsh and fish. The binary is not signed or notarized. If
+macOS refuses to open it, check the download and remove the quarantine flag:
+
+```sh
+xattr -d com.apple.quarantine "$(which oa)"
+```
+
+### Binaries and source
+
 Download a binary from the releases page, or build from source (Go 1.26 or newer):
 
 ```sh

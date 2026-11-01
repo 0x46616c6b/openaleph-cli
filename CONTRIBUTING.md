@@ -66,6 +66,21 @@ requests. The workflow in `.github/workflows/release-drafter.yml` keeps a draft 
   workflow builds the binaries with GoReleaser and attaches them to that draft, keeping its notes. If the tag does not
   match the draft, GoReleaser creates a new release without these notes.
 
+## Homebrew tap
+
+GoReleaser publishes a Homebrew cask to the tap repository `homebrew-tap` of the repository owner on every release, so
+users can run `brew install <owner>/tap/oa`. One-time setup:
+
+1. Create a public repository named `homebrew-tap` (it may be empty, but needs at least one commit, for example a
+   README).
+2. Create a fine-grained personal access token that is limited to that repository and has the repository permission
+   "Contents: Read and write".
+3. Add it to this repository as the Actions secret `HOMEBREW_TAP_GITHUB_TOKEN`. The default `GITHUB_TOKEN` cannot push
+   to another repository.
+
+Without the secret the release workflow fails at the cask step. The binary is not signed or notarized, so the cask only
+documents the `xattr` workaround in its caveats and does not remove the macOS quarantine flag by itself.
+
 ## Reporting bugs
 
 Please include the `oa --version` output, the command you ran (with secrets removed) and the error. Never paste API

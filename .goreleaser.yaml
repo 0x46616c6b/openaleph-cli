@@ -39,3 +39,30 @@ changelog:
 release:
   use_existing_draft: true
   mode: keep-existing
+
+# Homebrew cask in the tap repository 0x46616c6b/homebrew-tap. Install with:
+#   brew install 0x46616c6b/tap/oa
+# Needs the HOMEBREW_TAP_GITHUB_TOKEN secret: a token with write access to
+# the tap repository (the default GITHUB_TOKEN cannot push to other repos).
+homebrew_casks:
+  - name: oa
+    repository:
+      owner: 0x46616c6b
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: https://github.com/0x46616c6b/openaleph-cli
+    description: OpenAleph on the command line, a drop-in replacement for the Python client
+    license: MIT
+    commit_msg_template: "chore: update {{ .ProjectName }} to {{ .Tag }}"
+    binaries: [oa]
+    generate_completions_from_executable:
+      executable: oa
+      base_name: oa
+      shell_parameter_format: cobra
+      shells: [bash, zsh, fish]
+    # The binary is not signed or notarized. The quarantine flag is not removed
+    # automatically, so tell users what to do if macOS refuses to start it.
+    caveats: |
+      oa is not signed or notarized. If macOS refuses to open it, remove the
+      quarantine flag yourself after checking the download:
+        xattr -d com.apple.quarantine "$(which oa)"
