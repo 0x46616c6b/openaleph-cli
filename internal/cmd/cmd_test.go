@@ -229,7 +229,7 @@ func TestSearchTable(t *testing.T) {
 func TestStatusTable(t *testing.T) {
 	h := newHarness(t, func(w http.ResponseWriter, r *http.Request) {
 		reply(w, map[string]any{"total": 1, "results": []any{
-			map[string]any{"pending": 4, "running": 1, "finished": 9, "collection": map[string]any{"id": "7", "label": "Leak A"}},
+			map[string]any{"todo": 4, "doing": 1, "failed": 2, "finished": 9, "remaining_time": "PT5H12M42.885S", "collection": map[string]any{"id": "7", "label": "Leak A"}},
 		}})
 	})
 	h.login()
@@ -237,7 +237,7 @@ func TestStatusTable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"PENDING", "Leak A", "4", "9"} {
+	for _, want := range []string{"TODO", "REMAINING", "Leak A", "5h12m", "9"} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("missing %q in:\n%s", want, stdout)
 		}
@@ -305,5 +305,22 @@ func TestAPIErrorSurfaced(t *testing.T) {
 	_, _, err := h.run("api", "entities/zzz")
 	if err == nil || err.Error() != "Not found." {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestRemaining(t *testing.T) {
+	cases := map[string]string{
+		"PT5H12M42.885S":  "5h12m",
+		"P2DT9H28M10.95S": "2d9h",
+		"PT0S":            "-",
+		"PT45S":           "0m45s",
+		"PT8M":            "8m",
+		"":                "",
+		"soon":            "soon",
+	}
+	for in, want := range cases {
+		if got := remaining(in); got != want {
+			t.Errorf("remaining(%q) = %q, want %q", in, got, want)
+		}
 	}
 }
