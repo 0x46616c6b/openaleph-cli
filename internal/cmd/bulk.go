@@ -36,11 +36,11 @@ func (a *App) collectionByRef(ctx context.Context, c *api.Client, ref string, fo
 
 // loadCollection is like collectionByRef but creates missing collections
 // when the reference is a foreign ID.
-func (a *App) loadCollection(ctx context.Context, c *api.Client, ref string, foreignOnly bool) (api.Object, error) {
+func (a *App) loadCollection(ctx context.Context, c *api.Client, ref string, foreignOnly bool, cfg api.CollectionConfig) (api.Object, error) {
 	if _, err := strconv.ParseUint(ref, 10, 64); err == nil && !foreignOnly {
 		return c.GetCollection(ctx, ref)
 	}
-	return c.LoadCollectionByForeignID(ctx, ref, api.CollectionConfig{})
+	return c.LoadCollectionByForeignID(ctx, ref, cfg)
 }
 
 func (a *App) openOut(path string) (io.Writer, func() error, error) {
@@ -154,7 +154,7 @@ func (a *App) writeEntities(ctx context.Context, o writeOpts) error {
 	if err != nil {
 		return err
 	}
-	coll, err := a.loadCollection(ctx, c, o.collection, o.foreignOnly)
+	coll, err := a.loadCollection(ctx, c, o.collection, o.foreignOnly, api.CollectionConfig{})
 	if err != nil {
 		return err
 	}
@@ -202,7 +202,7 @@ func (a *App) writeEntity(ctx context.Context, collection string, foreignOnly bo
 	if err != nil {
 		return err
 	}
-	coll, err := a.loadCollection(ctx, c, collection, foreignOnly)
+	coll, err := a.loadCollection(ctx, c, collection, foreignOnly, api.CollectionConfig{})
 	if err != nil {
 		return err
 	}

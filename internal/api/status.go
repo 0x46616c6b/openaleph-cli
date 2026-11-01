@@ -20,6 +20,9 @@ func (c *Client) Metadata(ctx context.Context) (Object, error) {
 	return out, err
 }
 
+// ID returns the "id" of an API object as a string, or "".
+func ID(o Object) string { return idString(o["id"]) }
+
 func idString(v any) string {
 	switch t := v.(type) {
 	case string:

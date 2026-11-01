@@ -29,6 +29,8 @@ func newCollectionCmd(app *App) *cobra.Command {
 		newCollectionFlushCmd(app),
 		newCollectionReindexCmd(app),
 		newCollectionReingestCmd(app),
+		newCollectionUploadCmd(app),
+		newCollectionDownloadCmd(app),
 	)
 	return cmd
 }
