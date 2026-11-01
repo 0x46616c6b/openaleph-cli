@@ -1,0 +1,48 @@
+version: 2
+
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    # Wait before proposing fresh releases, so yanked or broken versions
+    # are less likely to reach us. Security updates ignore the cooldown.
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
+      semver-minor-days: 7
+      semver-patch-days: 3
+    # One pull request for all minor and patch updates. Major updates are not
+    # grouped and get their own pull request each.
+    groups:
+      go-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    # Results in titles like "chore(deps): bump ...", which the release notes
+    # configuration leaves out.
+    commit-message:
+      prefix: chore
+      include: scope
+    labels: [maintenance]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    # github-actions only supports default-days.
+    cooldown:
+      default-days: 7
+    groups:
+      actions-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    commit-message:
+      prefix: ci
+      include: scope
+    labels: [maintenance]
