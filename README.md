@@ -22,14 +22,18 @@ $ oa collection upload leak_a ./documents --parallel 4
 brew install 0x46616c6b/tap/oa
 ```
 
-This installs the binary and the shell completions for bash, zsh and fish. The binary is not signed or notarized. If
-macOS refuses to open it, check the download and remove the quarantine flag:
-
-```sh
-xattr -d com.apple.quarantine "$(which oa)"
-```
+This installs the binary and the shell completions for bash, zsh and fish.
 
 ### Binaries and source
+
+The binaries are not signed or notarized. If macOS refuses to open a binary that you downloaded in the browser, check
+the download and remove the quarantine flag:
+
+```sh
+xattr -d com.apple.quarantine ./oa
+```
+
+Installing with Homebrew is not affected, because Homebrew does not quarantine formulae.
 
 Download a binary from the releases page, or build from source (Go 1.26 or newer):
 

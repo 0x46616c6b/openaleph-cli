@@ -68,7 +68,7 @@ requests. The workflow in `.github/workflows/release-drafter.yml` keeps a draft 
 
 ## Homebrew tap
 
-GoReleaser publishes a Homebrew cask to the tap repository `homebrew-tap` of the repository owner on every release, so
+GoReleaser publishes a Homebrew formula to the tap repository `homebrew-tap` of the repository owner on every release, so
 users can run `brew install <owner>/tap/oa`. One-time setup:
 
 1. Create a public repository named `homebrew-tap` (it may be empty, but needs at least one commit, for example a
@@ -78,8 +78,10 @@ users can run `brew install <owner>/tap/oa`. One-time setup:
 3. Add it to this repository as the Actions secret `HOMEBREW_TAP_GITHUB_TOKEN`. The default `GITHUB_TOKEN` cannot push
    to another repository.
 
-Without the secret the release workflow fails at the cask step. The binary is not signed or notarized, so the cask only
-documents the `xattr` workaround in its caveats and does not remove the macOS quarantine flag by itself.
+Without the secret the release workflow fails at the formula step. The tap uses a formula and not a cask on purpose:
+Homebrew puts downloaded casks under macOS quarantine, which kills an unsigned binary, and formulae are not quarantined.
+GoReleaser marks `brews` as deprecated, so `goreleaser check` reports it. The release itself is not affected. Switch to
+`homebrew_casks` only together with signing and notarizing the binary.
 
 ## Reporting bugs
 
