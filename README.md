@@ -22,7 +22,44 @@ Download a binary from the releases page, or build from source (Go 1.26 or newer
 go install github.com/0x46616c6b/openaleph-cli/cmd/oa@latest
 ```
 
-Shell completions: `oa completion bash|zsh|fish|powershell`.
+### Shell completion
+
+`oa completion` prints a completion script for `bash`, `zsh`, `fish` and `powershell`. It completes commands,
+subcommands and flags.
+
+zsh:
+
+```sh
+# once, if completion is not enabled yet
+echo "autoload -U compinit; compinit" >> ~/.zshrc
+
+# install the script into a directory on your $fpath
+oa completion zsh > "${fpath[1]}/_oa"
+
+# or load it on every start, in ~/.zshrc
+source <(oa completion zsh)
+```
+
+bash (needs the `bash-completion` package):
+
+```sh
+# macOS with Homebrew
+oa completion bash > "$(brew --prefix)/etc/bash_completion.d/oa"
+
+# Linux
+oa completion bash | sudo tee /etc/bash_completion.d/oa
+
+# or load it on every start, in ~/.bashrc
+source <(oa completion bash)
+```
+
+fish:
+
+```sh
+oa completion fish > ~/.config/fish/completions/oa.fish
+```
+
+Restart the shell afterwards. Run `oa completion <shell> --help` for more options.
 
 ## Authentication
 
