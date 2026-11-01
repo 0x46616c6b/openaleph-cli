@@ -9,7 +9,13 @@ func newEntityCmd(app *App) *cobra.Command {
 		Use:   "entity <command>",
 		Short: "Work with entities",
 	}
-	cmd.AddCommand(newEntityViewCmd(app), newEntityDeleteCmd(app))
+	cmd.AddCommand(
+		newEntityViewCmd(app),
+		newEntityDeleteCmd(app),
+		newEntityStreamCmd(app),
+		newEntityWriteCmd(app),
+		newEntityWriteManyCmd(app),
+	)
 	return cmd
 }
 

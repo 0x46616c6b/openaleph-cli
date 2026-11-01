@@ -21,6 +21,7 @@ type IOStreams struct {
 	Out    io.Writer
 	Err    io.Writer
 	OutTTY bool
+	ErrTTY bool
 	InTTY  bool
 }
 
@@ -29,6 +30,7 @@ func SystemIO() *IOStreams {
 	return &IOStreams{
 		In: os.Stdin, Out: os.Stdout, Err: os.Stderr,
 		OutTTY: output.IsTerminal(os.Stdout),
+		ErrTTY: output.IsTerminal(os.Stderr),
 		InTTY:  output.IsTerminal(os.Stdin),
 	}
 }
