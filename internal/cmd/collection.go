@@ -20,7 +20,16 @@ func newCollectionCmd(app *App) *cobra.Command {
 		Short:   "Manage collections",
 		Long:    "Collections are referenced by numeric ID or by foreign ID.",
 	}
-	cmd.AddCommand(newCollectionListCmd(app), newCollectionViewCmd(app))
+	cmd.AddCommand(
+		newCollectionListCmd(app),
+		newCollectionViewCmd(app),
+		newCollectionCreateCmd(app),
+		newCollectionEditCmd(app),
+		newCollectionDeleteCmd(app),
+		newCollectionFlushCmd(app),
+		newCollectionReindexCmd(app),
+		newCollectionReingestCmd(app),
+	)
 	return cmd
 }
 

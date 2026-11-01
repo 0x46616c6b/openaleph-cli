@@ -39,6 +39,7 @@ func NewRootCmd(app *App) *cobra.Command {
 		newCollectionCmd(app),
 		newSearchCmd(app),
 		newEntityCmd(app),
+		newEntitySetCmd(app),
 		newAPICmd(app),
 	)
 	return root
