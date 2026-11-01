@@ -1,0 +1,8 @@
+/bin/
+/dist/
+/oa
+*.test
+*.out
+.env
+.openaleph_crawl_state.db
+.openaleph-failed.txt
