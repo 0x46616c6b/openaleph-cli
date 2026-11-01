@@ -27,9 +27,10 @@ make build   # bin/oa
 
 ## Dependencies
 
-Dependabot (`.github/dependabot.yml`) checks Go modules and GitHub Actions every Monday. Minor and patch updates come
-as one grouped pull request per ecosystem, major updates as separate ones. New releases wait 7 days before they are
-proposed (30 days for major and 3 days for patch updates of Go modules), and security updates are not delayed.
+Dependabot (`.github/dependabot.yml`) checks Go modules and GitHub Actions every Monday. All updates, major ones
+included, come as one grouped pull request per ecosystem. Read the release notes of major updates in the pull request
+before merging. New releases wait 7 days before they are proposed (30 days for major and 3 days for patch updates of Go
+modules), and security updates are not delayed.
 
 Actions are locked in `.github/workflows/actions.lock`. Dependabot updates the lockfile in the same pull request. If you
 change a `uses:` line yourself, run `gh actions-lock` and commit the result.

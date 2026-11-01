@@ -15,12 +15,12 @@ updates:
       semver-major-days: 30
       semver-minor-days: 7
       semver-patch-days: 3
-    # One pull request for all minor and patch updates. Major updates are not
-    # grouped and get their own pull request each.
+    # One pull request for all updates, major ones included. A major update
+    # joins the pull request once its 30 day cooldown is over.
     groups:
-      go-minor-and-patch:
+      go-dependencies:
         patterns: ["*"]
-        update-types: [minor, patch]
+        update-types: [major, minor, patch]
     # Results in titles like "chore(deps): bump ...", which the release notes
     # configuration leaves out.
     commit-message:
@@ -39,9 +39,9 @@ updates:
     cooldown:
       default-days: 7
     groups:
-      actions-minor-and-patch:
+      actions:
         patterns: ["*"]
-        update-types: [minor, patch]
+        update-types: [major, minor, patch]
     commit-message:
       prefix: ci
       include: scope
