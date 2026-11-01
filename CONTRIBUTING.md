@@ -35,6 +35,22 @@ requests. The workflow in `.github/workflows/release-drafter.yml` keeps a draft 
   title becomes the commit and the changelog entry. `feat` lists under Features and bumps the minor version, `fix` and
   `perf` bump the patch version, and a breaking change (`feat!:` or a `BREAKING CHANGE` footer) bumps the major
   version. `docs`, `test`, `chore`, `ci`, `build` and `style` are left out of the notes.
+- **A wrong title does not lose the change.** The autolabeler (`.github/workflows/autolabeler.yml`) also labels pull
+  requests by loose titles such as `Add support for X` or `Fixed crash on Y` and by branch names such as `feature/`,
+  `fix/` or `docs/`, and the draft sorts by these labels just like by the title. A pull request that matches nothing
+  is still listed with the plain changes. You can always set a label by hand, and `skip-changelog` leaves a pull
+  request out. Labels are defined in `.github/labels.txt` and created by the "Sync labels" workflow:
+
+  | Label | Section | Version |
+  | --- | --- | --- |
+  | `breaking` | Breaking changes | major |
+  | `feature` | Features | minor |
+  | `bug` | Fixes | patch |
+  | `performance` | Performance | patch |
+  | `documentation`, `maintenance`, `skip-changelog` | left out | none |
+
+  `documentation` and `maintenance` only hide a pull request when no other label is set, so a feature that also
+  touches `.github/` or the docs stays in the notes.
 - Commits that are pushed directly to `main` without a pull request do not appear in the draft.
 - To release, check the draft on the Releases page, then push the tag it names (for example `v0.2.0`). The release
   workflow builds the binaries with GoReleaser and attaches them to that draft, keeping its notes. If the tag does not

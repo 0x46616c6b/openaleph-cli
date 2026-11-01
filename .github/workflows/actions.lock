@@ -3,14 +3,20 @@
 # Docs: https://gh.io/actions-lockfile
 version: 'v0.0.3'
 workflows:
+    '.github/workflows/autolabeler.yml':
+        - 'release-drafter/release-drafter@v7.10.0'
     '.github/workflows/ci.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-go@v7.0.0'
         - 'golangci/golangci-lint-action@v9.3.0'
+    '.github/workflows/release-drafter.yml':
+        - 'release-drafter/release-drafter@v7.10.0'
     '.github/workflows/release.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-go@v7.0.0'
         - 'goreleaser/goreleaser-action@v7.3.0'
+    '.github/workflows/sync-labels.yml':
+        - 'actions/checkout@v7.0.1'
 dependencies:
     'actions/checkout@v7.0.1':
         ref: 'v7.0.1'
@@ -32,3 +38,8 @@ dependencies:
         commit: 'sha1-a4f02ab5355a589de60d917a659ce617ed19b3de'
         owner_id: 24697112
         repo_id: 209873006
+    'release-drafter/release-drafter@v7.10.0':
+        ref: 'v7.10.0'
+        commit: 'sha1-978bb0b30c5ee8cdd332ced253758157150d43f0'
+        owner_id: 58292376
+        repo_id: 139022359

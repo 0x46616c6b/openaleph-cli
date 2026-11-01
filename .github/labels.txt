@@ -1,0 +1,7 @@
+breaking|d93f0b|Breaking change, bumps the major version
+feature|0e8a16|New feature, bumps the minor version
+bug|d73a4a|Bug fix
+performance|1d76db|Performance improvement
+documentation|0075ca|Documentation only, left out of the release notes
+maintenance|c5def5|Chores, CI, build, tests and style, left out of the release notes
+skip-changelog|ededed|Leave this pull request out of the release notes

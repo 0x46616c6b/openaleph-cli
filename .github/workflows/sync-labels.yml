@@ -1,0 +1,32 @@
+name: Sync labels
+
+# Creates or updates the labels listed in .github/labels.txt
+# (name|color|description). Existing labels are updated, none are deleted.
+on:
+  push:
+    branches: [main]
+    paths: [.github/labels.txt]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Sync labels
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Create or update labels
+        run: |
+          while IFS='|' read -r name color description; do
+            [ -z "$name" ] && continue
+            gh label create "$name" --color "$color" --description "$description" --force
+          done < .github/labels.txt

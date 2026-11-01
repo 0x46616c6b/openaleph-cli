@@ -1,0 +1,21 @@
+name: Autolabeler
+
+# pull_request_target gives the token write access for pull requests from
+# forks as well. This is safe here because the job does not check out or run
+# any code from the pull request.
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  autolabel:
+    name: Label pull request
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Apply labels
+        uses: release-drafter/release-drafter/autolabeler@v7.10.0

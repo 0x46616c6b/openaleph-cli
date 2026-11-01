@@ -3,44 +3,105 @@ tag-template: "v$RESOLVED_VERSION"
 
 change-template: "- $TITLE (#$NUMBER)"
 
-# Pull request titles follow Conventional Commits, so categories and the next
-# version are derived from them. Anything that matches no category is listed
-# under the plain changes.
+# Pull requests are sorted by their Conventional Commits title or by a label,
+# whichever matches. The autolabeler below sets labels for titles and branches
+# that do not follow the convention, so those pull requests still end up in the
+# right section. Anything that matches no category is listed with the plain
+# changes, so nothing is lost. Each `when` list is an OR of its entries.
 categories:
   - title: "Breaking changes"
     semver-increment: major
     exclusive: true
     when:
-      conventional:
-        breaking: true
+      - conventional:
+          breaking: true
+      - label: breaking
 
   - title: "Features"
     semver-increment: minor
     when:
-      conventional:
-        type: feat
+      - conventional:
+          type: feat
+      - label: feature
 
   - title: "Fixes"
     semver-increment: patch
     when:
-      conventional:
-        type: fix
+      - conventional:
+          type: fix
+      - label: bug
 
   - title: "Performance"
     semver-increment: patch
     when:
-      conventional:
-        type: perf
+      - conventional:
+          type: perf
+      - label: performance
 
-  # Housekeeping that does not belong in the release notes.
+  # Housekeeping that does not belong in the release notes. A pull request
+  # that also carries another label (for example feature) is kept.
   - type: pre-exclude
     when:
-      conventional:
-        types: [docs, test, chore, ci, build, style]
+      - conventional:
+          types: [docs, test, chore, ci, build, style]
+      - label: skip-changelog
+      - labels: [documentation, maintenance]
+        labels-mode: only
 
   # Everything else bumps the patch version.
   - type: version-resolver
     semver-increment: patch
+
+# Remove labels again when a title or branch no longer matches.
+sync-labels: true
+
+# Patterns are regular expressions in /pattern/flags form. The first rules are
+# the strict Conventional Commits forms, the later ones catch common loose
+# titles such as "Add support for X" or "Fixed crash on Y".
+autolabeler:
+  - labels: [breaking]
+    title:
+      - '/^\w+(\(.+\))?!:/'
+      - '/\bbreaking( change)?s?\b/i'
+    branch:
+      - '/^breaking\//i'
+
+  - labels: [feature]
+    title:
+      - '/^feat(ure)?(\(.+\))?:/i'
+      - '/^(add|adds|added|implement|implements|implemented|introduce|introduces|support|supports|create|creates)\b/i'
+    branch:
+      - '/^(feat|feature)\//i'
+
+  - labels: [bug]
+    title:
+      - '/^(fix|bugfix|hotfix)(\(.+\))?:/i'
+      - '/^(fix|fixes|fixed|bug|bugfix|hotfix|resolve|resolves|resolved|correct|corrects|corrected)\b/i'
+    branch:
+      - '/^(fix|bug|bugfix|hotfix)\//i'
+
+  - labels: [performance]
+    title:
+      - '/^perf(\(.+\))?:/i'
+      - '/^(optimi[sz]e|optimi[sz]es|speed up|speeds up)\b/i'
+    branch:
+      - '/^perf\//i'
+
+  - labels: [documentation]
+    title:
+      - '/^docs?(\(.+\))?:/i'
+      - '/^(doc|docs|document|documents|readme)\b/i'
+    branch:
+      - '/^docs?\//i'
+
+  - labels: [maintenance]
+    title:
+      - '/^(chore|ci|build|test|tests|style)(\(.+\))?:/i'
+      - '/^(bump|update dependenc|deps)/i'
+    branch:
+      - '/^(chore|ci|deps|dependabot)\//i'
+    files:
+      - '.github/**'
 
 template: |
   $CHANGES
