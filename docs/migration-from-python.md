@@ -48,5 +48,3 @@ These are deliberate, to avoid data loss:
 ## Not carried over
 
 - The Python library API (`AlephAPI`). `oa` is a command-line tool. Use `oa api` or the REST API directly.
-- `--noindex` and the other flags keep their names, but `-f` for `fetchdir` and `-p` for `fetchdir` (prefix) behave
-  exactly as in the Python client only in the old command names.
