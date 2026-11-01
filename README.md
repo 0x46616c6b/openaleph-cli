@@ -103,6 +103,7 @@ Collections are referenced by numeric ID or foreign ID.
 | --- | --- |
 | `oa auth login / logout / status` | Manage and verify the saved login |
 | `oa status [collection]` | Show collections that are being processed |
+| `oa status watch [collection]` | Refresh the processing status until all tasks have finished |
 | `oa collection list / view` | Browse collections |
 | `oa collection create / edit / delete / flush` | Manage collections (`delete` and `flush` need `--yes` in scripts) |
 | `oa collection reindex / reingest` | Re-run indexing or ingest |

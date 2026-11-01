@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/0x46616c6b/openaleph-cli/internal/config"
 )
@@ -244,6 +245,29 @@ func TestStatusTable(t *testing.T) {
 	}
 }
 
+func TestStatusWatch(t *testing.T) {
+	calls := 0
+	h := newHarness(t, func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		results := []any{}
+		if calls < 3 {
+			results = append(results, map[string]any{"todo": float64(4 - calls), "doing": 1, "failed": 2, "collection": map[string]any{"id": "7", "label": "Leak A"}})
+		}
+		reply(w, map[string]any{"results": results})
+	})
+	h.login()
+	stdout, stderr, err := h.run("status", "watch", "-i", "1ms", "--exit-status")
+	if err == nil {
+		t.Fatal("want error for failed tasks with --exit-status")
+	}
+	if calls != 3 || strings.Count(stdout, "Leak A") != 2 {
+		t.Fatalf("calls = %d, stdout:\n%s", calls, stdout)
+	}
+	if !strings.Contains(stderr, "All tasks finished, 2 failed") {
+		t.Fatalf("stderr = %q", stderr)
+	}
+}
+
 func TestEntityView(t *testing.T) {
 	h := newHarness(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/2/entities/e1" {
@@ -322,5 +346,18 @@ func TestRemaining(t *testing.T) {
 		if got := remaining(in); got != want {
 			t.Errorf("remaining(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestRenderStatusTUI(t *testing.T) {
+	rows := []any{map[string]any{"todo": float64(2), "doing": float64(1), "failed": float64(1), "finished": float64(6), "remaining_time": "PT5H12M42S", "collection": map[string]any{"id": "7", "label": "Leak A"}}}
+	out := renderStatusTUI(rows, time.Unix(0, 0), 3*time.Second, false)
+	for _, want := range []string{"┌", "Leak A", "70%", "5h12m", "Press q to quit"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "\x1b[3") {
+		t.Error("colors must be off")
 	}
 }
