@@ -55,16 +55,16 @@ func TestCollectionUploadCreatesCollectionAndUploads(t *testing.T) {
 
 func TestCollectionDownload(t *testing.T) {
 	h := newHarness(t, func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/api/2/collections/5":
+		switch r.URL.Path {
+		case "/api/2/collections/5":
 			reply(w, map[string]any{"id": "5", "label": "Docs"})
-		case r.URL.Path == "/api/2/entities":
+		case "/api/2/entities":
 			reply(w, map[string]any{"total": 1, "results": []any{map[string]any{
 				"id":         "f1",
 				"properties": map[string]any{"fileName": []any{"hello.txt"}},
 				"links":      map[string]any{"file": "http://" + r.Host + "/files/f1"},
 			}}})
-		case r.URL.Path == "/files/f1":
+		case "/files/f1":
 			_, _ = w.Write([]byte("hello"))
 		default:
 			t.Errorf("unexpected %s %s", r.Method, r.URL)

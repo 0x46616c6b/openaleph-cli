@@ -7,6 +7,20 @@ linters:
     - gocritic
     - misspell
     - unconvert
+  settings:
+    errcheck:
+      # Errors from closing read-only handles and from writing messages to the
+      # terminal are not actionable in a command-line tool.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - os.Remove
+        - (io.Closer).Close
+        - (io.ReadCloser).Close
+        - (*os.File).Close
+        - (*database/sql.DB).Close
+        - (*database/sql.Rows).Close
 
 formatters:
   enable:

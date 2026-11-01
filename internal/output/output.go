@@ -61,7 +61,7 @@ func WriteJSON(w io.Writer, v any, o JSONOptions) error {
 	if err != nil {
 		return err
 	}
-	if len(o.Fields) > 0 && !(len(o.Fields) == 1 && o.Fields[0] == "all") {
+	if len(o.Fields) > 0 && (len(o.Fields) != 1 || o.Fields[0] != "all") {
 		v = selectFields(v, o.Fields)
 	}
 	if o.JQ == "" {

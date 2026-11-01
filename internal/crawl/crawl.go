@@ -93,7 +93,7 @@ func Run(ctx context.Context, c *api.Client, collection api.Object, o Options) (
 	if err != nil {
 		return res, err
 	}
-	defer state.Close()
+	defer func() { _ = state.Close() }()
 	res.StateFile = statePath
 
 	cr := &crawler{c: c, collID: api.ID(collection), o: o, state: state, root: root}

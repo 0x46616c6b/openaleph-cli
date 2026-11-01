@@ -162,7 +162,7 @@ func (a *App) writeEntities(ctx context.Context, o writeOpts) error {
 	if err != nil {
 		return err
 	}
-	defer closeIn()
+	defer func() { _ = closeIn() }()
 
 	label := firstNonEmpty(str(coll, "foreign_id"), str(coll, "id"))
 	progress := false
@@ -210,7 +210,7 @@ func (a *App) writeEntity(ctx context.Context, collection string, foreignOnly bo
 	if err != nil {
 		return err
 	}
-	defer closeIn()
+	defer func() { _ = closeIn() }()
 	for e, err := range jsonLines(in) {
 		if err != nil {
 			return err
