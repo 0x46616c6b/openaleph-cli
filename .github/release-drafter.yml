@@ -1,0 +1,48 @@
+name-template: "v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
+
+change-template: "- $TITLE (#$NUMBER)"
+
+# Pull request titles follow Conventional Commits, so categories and the next
+# version are derived from them. Anything that matches no category is listed
+# under the plain changes.
+categories:
+  - title: "Breaking changes"
+    semver-increment: major
+    exclusive: true
+    when:
+      conventional:
+        breaking: true
+
+  - title: "Features"
+    semver-increment: minor
+    when:
+      conventional:
+        type: feat
+
+  - title: "Fixes"
+    semver-increment: patch
+    when:
+      conventional:
+        type: fix
+
+  - title: "Performance"
+    semver-increment: patch
+    when:
+      conventional:
+        type: perf
+
+  # Housekeeping that does not belong in the release notes.
+  - type: pre-exclude
+    when:
+      conventional:
+        types: [docs, test, chore, ci, build, style]
+
+  # Everything else bumps the patch version.
+  - type: version-resolver
+    semver-increment: patch
+
+template: |
+  $CHANGES
+
+  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION

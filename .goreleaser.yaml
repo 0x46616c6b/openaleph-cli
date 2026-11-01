@@ -30,20 +30,12 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# Release notes are drafted by release-drafter (.github/release-drafter.yml).
 changelog:
-  use: git
-  sort: asc
-  groups:
-    - title: Features
-      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
-      order: 0
-    - title: Fixes
-      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
-      order: 1
-    - title: Other
-      order: 999
-  filters:
-    exclude:
-      - '^docs:'
-      - '^test:'
-      - '^chore:'
+  disable: true
+
+# Attach the artifacts to the draft that release-drafter prepared for this tag
+# and keep its notes.
+release:
+  use_existing_draft: true
+  mode: keep-existing
