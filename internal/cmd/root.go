@@ -42,6 +42,7 @@ func NewRootCmd(app *App) *cobra.Command {
 		newEntitySetCmd(app),
 		newAPICmd(app),
 	)
+	addCompatCommands(root, app)
 	return root
 }
 
