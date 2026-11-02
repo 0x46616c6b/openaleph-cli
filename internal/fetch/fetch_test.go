@@ -3,6 +3,7 @@ package fetch
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -166,5 +167,24 @@ func TestFileNamePicksLongest(t *testing.T) {
 	}
 	if got := fileName(api.Object{"id": "x"}); got != "x" {
 		t.Fatalf("fallback = %q", got)
+	}
+}
+
+func TestProgress(t *testing.T) {
+	c := newServer(t)
+	dest := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dest, "one.txt"), []byte("mine"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	_, err := Collection(context.Background(), c, api.Object{"id": "5"}, Options{Prefix: dest, Progress: func(r Result, name string) {
+		got = append(got, fmt.Sprintf("%d/%d %s", r.Fetched, r.Skipped, name))
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"0/1 one.txt", "1/1 two.txt", "2/1 .._.._escaped.txt"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("progress = %q, want %q", got, want)
 	}
 }

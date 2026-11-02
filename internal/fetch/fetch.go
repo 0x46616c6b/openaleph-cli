@@ -26,6 +26,9 @@ type Options struct {
 	Overwrite bool
 	// Log receives progress messages.
 	Log func(level, msg string)
+	// Progress is called after each file with the counts so far and the
+	// name of the file.
+	Progress func(r Result, name string)
 }
 
 // Result counts what a download did.
@@ -169,14 +172,22 @@ func (f *fetcher) file(ctx context.Context, dir, name, fileURL string) error {
 	if _, err := os.Lstat(target); err == nil && !f.o.Overwrite {
 		f.logf("Skip [%s]: %s", dir, name)
 		f.res.Skipped++
+		f.progress(name)
 		return nil
 	}
 	f.logf("Fetch [%s]: %s", dir, name)
 	err := f.c.Retry(ctx, func() error { return f.download(ctx, fileURL, dir, target) })
 	if err == nil {
 		f.res.Fetched++
+		f.progress(name)
 	}
 	return err
+}
+
+func (f *fetcher) progress(name string) {
+	if f.o.Progress != nil {
+		f.o.Progress(f.res, name)
+	}
 }
 
 // download streams to a temporary file next to target and moves it into

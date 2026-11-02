@@ -64,7 +64,8 @@ func (p *schemaPicker) keys() []key.Binding {
 
 func (p *schemaPicker) init() tea.Cmd {
 	ctx, b, to := p.env.ctx, p.env.backend, p.vid
-	q := EntityQuery{Query: p.list.query, CollectionID: p.list.collID}
+	q := p.list.base
+	q.Query = p.list.query
 	return tea.Batch(p.input.Focus(), func() tea.Msg {
 		vals, err := b.SchemaCounts(ctx, q)
 		return schemaCountsMsg{to: to, values: vals, err: err}

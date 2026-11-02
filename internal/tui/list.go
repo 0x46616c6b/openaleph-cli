@@ -64,8 +64,11 @@ type listView struct {
 	actions []action
 	// investigations marks the investigations list (for new collections).
 	investigations bool
-	// collID and schemas select the entities of an entity list.
-	collID  string
+	// footerHide lists keys left out of the footer to keep it within 80
+	// columns; ? shows them.
+	footerHide map[string]bool
+	// base and schemas select the entities of an entity list.
+	base    EntityQuery
 	schemas []string
 
 	input   textinput.Model
@@ -128,7 +131,7 @@ func newEntitiesView(e *env, collection api.Object, query string, schemas []stri
 		name, collID = str(collection, "label"), str(collection, "id")
 	}
 	l := newListView(e, name, "entities", query)
-	l.collID, l.schemas = collID, schemas
+	l.base, l.schemas = EntityQuery{CollectionID: collID}, schemas
 	l.fetch = func(ctx context.Context, q listQuery, offset int) (Page, error) {
 		return e.backend.Entities(ctx, EntityQuery{Query: q.text, CollectionID: collID, Schemas: q.schemas}, offset)
 	}
@@ -146,9 +149,14 @@ func newEntitiesView(e *env, collection api.Object, query string, schemas []stri
 	l.actions = []action{
 		{key: keySchema, anyItem: true, run: func(l *listView, _ api.Object) tea.Cmd { return push(newSchemaPicker(e, l)) }},
 		{key: keyClearSchema, anyItem: true, run: func(l *listView, _ api.Object) tea.Cmd { return l.setSchemas(nil) }},
+		{key: keyDownload, run: func(_ *listView, o api.Object) tea.Cmd { return downloadDialog(e, o) }},
 		{key: keyYank, run: yankID},
 		{key: keyWeb, run: openUI},
 	}
+	if collection != nil {
+		pairViews(e, l, collection)
+	}
+	l.footerHide = map[string]bool{"enter": true, "d": true}
 	return l
 }
 

@@ -52,8 +52,14 @@ type EntityQuery struct {
 	Query string
 	// CollectionID limits the search to one collection; empty searches all.
 	CollectionID string
-	// Schemas limits the search to these schemas; empty means all Things.
+	// Schemas limits the search to these schemas; empty means all Things,
+	// or all documents with Parent or TopLevel.
 	Schemas []string
+	// Parent lists the documents in this folder: directly in it, or with a
+	// Query anywhere below it.
+	Parent string
+	// TopLevel lists the documents of the collection that are in no folder.
+	TopLevel bool
 }
 
 // Options configures Run.
@@ -72,6 +78,8 @@ type Options struct {
 	Status bool
 	// StatusInterval is how often the status refreshes (default 3s).
 	StatusInterval time.Duration
+	// DownloadDir is the directory downloads are offered to go to.
+	DownloadDir string
 	// Open opens a URL in the web browser.
 	Open func(url string) error
 	In   io.Reader
@@ -95,6 +103,7 @@ type env struct {
 	open           func(string) error
 	statusInterval time.Duration
 	theme          *theme
+	downloadDir    string
 	seq            int
 	// topID is the ID of the visible view.
 	topID int
@@ -122,8 +131,15 @@ type view interface {
 
 // Messages.
 type (
-	pushMsg   struct{ v view }
-	popMsg    struct{ id int }
+	pushMsg struct{ v view }
+	popMsg  struct{ id int }
+	// replaceMsg swaps the view with the given ID for v (for tab between
+	// the entities and the documents of a collection).
+	replaceMsg struct {
+		id   int
+		v    view
+		init bool
+	}
 	statusMsg struct {
 		text string
 		err  bool
@@ -137,6 +153,10 @@ type targeted interface{ target() int }
 func push(v view) tea.Cmd { return func() tea.Msg { return pushMsg{v} } }
 
 func pop(id int) tea.Cmd { return func() tea.Msg { return popMsg{id} } }
+
+func replace(id int, v view, init bool) tea.Cmd {
+	return func() tea.Msg { return replaceMsg{id: id, v: v, init: init} }
+}
 
 func status(text string) tea.Cmd { return func() tea.Msg { return statusMsg{text: text} } }
 
@@ -174,7 +194,7 @@ type model struct {
 }
 
 func newModel(ctx context.Context, o Options) model {
-	e := &env{ctx: ctx, backend: o.Backend, open: o.Open, statusInterval: o.StatusInterval}
+	e := &env{ctx: ctx, backend: o.Backend, open: o.Open, statusInterval: o.StatusInterval, downloadDir: o.DownloadDir}
 	if e.statusInterval <= 0 {
 		e.statusInterval = defaultStatusInterval
 	}
@@ -280,6 +300,22 @@ func (m model) update(msg tea.Msg) (model, tea.Cmd) {
 			return m, m.popTop()
 		}
 		return m, nil
+	case replaceMsg:
+		if m.top().id() != msg.id {
+			return m, nil
+		}
+		m.stack[len(m.stack)-1] = msg.v
+		m.layout()
+		if msg.init {
+			return m, msg.v.init()
+		}
+		return m, nil
+	case downloadMsg:
+		m.status, m.isErr = msg.status()
+		if msg.done {
+			return m, nil
+		}
+		return m, waitDownload(msg.ch)
 	case pushMsg:
 		m.stack = append(m.stack, msg.v)
 		m.layout()
@@ -374,8 +410,12 @@ func (m model) ShortHelp() []key.Binding {
 		}
 	}
 	var ks []key.Binding
+	var hide map[string]bool
+	if l, ok := m.top().(*listView); ok {
+		hide = l.footerHide
+	}
 	for _, k := range m.top().keys() {
-		if !secondaryKeys[k.Help().Key] {
+		if !secondaryKeys[k.Help().Key] && !hide[k.Help().Key] {
 			ks = append(ks, k)
 		}
 	}

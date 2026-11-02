@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/0x46616c6b/openaleph-cli/internal/api"
+	"github.com/0x46616c6b/openaleph-cli/internal/fetch"
 	"github.com/0x46616c6b/openaleph-cli/internal/tui"
 )
 
@@ -37,7 +38,9 @@ func newBrowseCmd(app *App) *cobra.Command {
 			"terminal UI. Press ? inside the browser for all keys.\n\n" +
 			"  enter, l     open the selected row\n" +
 			"  esc, h       go back\n" +
-			"  tab          switch between datasets and investigations\n" +
+			"  tab          switch between datasets and investigations, or between the\n" +
+			"               entities and the documents (folders) of a collection\n" +
+			"  d            download a document or folder\n" +
 			"  /            search (enter runs it, esc cancels)\n" +
 			"  j/k, g/G     move, jump to top or bottom\n" +
 			"  y            copy the ID to the clipboard (OSC 52, works over SSH)\n" +
@@ -83,6 +86,10 @@ func newBrowseCmd(app *App) *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
+			cwd, err := os.Getwd()
+			if err != nil {
+				return err
+			}
 			var coll api.Object
 			if collection != "" {
 				if coll, err = c.ResolveCollection(ctx, collection); err != nil {
@@ -90,15 +97,16 @@ func newBrowseCmd(app *App) *cobra.Command {
 				}
 			}
 			return tui.Run(ctx, tui.Options{
-				Backend:    browseBackend{c},
-				Host:       s.Host,
-				Collection: coll,
-				Query:      search,
-				Status:     status,
-				Schemas:    schemas,
-				Open:       openBrowser,
-				In:         app.IO.In,
-				Out:        app.IO.Out,
+				Backend:     browseBackend{c},
+				Host:        s.Host,
+				Collection:  coll,
+				Query:       search,
+				Status:      status,
+				Schemas:     schemas,
+				Open:        openBrowser,
+				DownloadDir: cwd,
+				In:          app.IO.In,
+				Out:         app.IO.Out,
 			})
 		},
 	}
@@ -117,7 +125,10 @@ func newBrowseCmd(app *App) *cobra.Command {
 // cursor moves down, and changes collections.
 type browseBackend struct{ c *api.Client }
 
-var _ tui.CollectionAdmin = browseBackend{}
+var (
+	_ tui.CollectionAdmin = browseBackend{}
+	_ tui.Downloader      = browseBackend{}
+)
 
 // pageParams asks for the page at offset, but not past the paging limit of
 // the server.
@@ -147,18 +158,49 @@ func (b browseBackend) Collections(ctx context.Context, q string, investigations
 	return toPage(b.c.ListCollections(ctx, q, filters, params))
 }
 
+// entitySearch builds the search for q. Folders work like in the web UI: the
+// contents of a folder are the documents whose parent it is, a search in a
+// folder covers all documents below it (ancestors), and the top level of a
+// collection are the documents without a parent.
 func entitySearch(q tui.EntityQuery) api.SearchOptions {
-	o := api.SearchOptions{Query: q.Query, Schemas: q.Schemas}
+	o := api.SearchOptions{Query: q.Query, Schemas: q.Schemas, Params: url.Values{}}
 	if q.CollectionID != "" {
 		o.Filters = []api.Filter{{Key: "collection_id", Value: q.CollectionID}}
+	}
+	switch {
+	case q.Parent != "":
+		field := "properties.parent"
+		if q.Query != "" {
+			field = "properties.ancestors"
+		}
+		o.Filters = append(o.Filters, api.Filter{Key: field, Value: q.Parent})
+		o.Schemata = "Document"
+	case q.TopLevel:
+		o.Params.Set("empty:properties.parent", "true")
+		o.Schemata = "Document"
 	}
 	return o
 }
 
 func (b browseBackend) Entities(ctx context.Context, q tui.EntityQuery, offset int) (tui.Page, error) {
 	o := entitySearch(q)
-	o.Params = pageParams(offset)
+	for k, v := range pageParams(offset) {
+		o.Params[k] = v
+	}
 	return toPage(b.c.Search(ctx, o))
+}
+
+// Download saves a document or a folder tree like `oa entity download`.
+func (b browseBackend) Download(ctx context.Context, entityID, dir string, overwrite bool,
+	progress func(tui.DownloadResult, string)) (tui.DownloadResult, error) {
+	res, err := fetch.Entity(ctx, b.c, entityID, fetch.Options{
+		Prefix:    dir,
+		Overwrite: overwrite,
+		Progress: func(r fetch.Result, name string) {
+			progress(tui.DownloadResult{Fetched: r.Fetched, Skipped: r.Skipped}, name)
+		},
+	})
+	return tui.DownloadResult{Fetched: res.Fetched, Skipped: res.Skipped}, err
 }
 
 // SchemaCounts counts over all schemas, relations like Ownership included,

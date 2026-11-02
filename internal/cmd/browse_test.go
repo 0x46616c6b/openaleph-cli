@@ -2,8 +2,11 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -211,5 +214,76 @@ func TestPageParamsRespectsServerLimit(t *testing.T) {
 		if got := pageParams(offset).Get("limit"); got != want {
 			t.Errorf("pageParams(%d) limit = %s, want %s", offset, got, want)
 		}
+	}
+}
+
+func TestBrowseBackendFolders(t *testing.T) {
+	var got []url.Values
+	h := newHarness(t, func(w http.ResponseWriter, r *http.Request) {
+		got = append(got, r.URL.Query())
+		reply(w, map[string]any{"total": 0, "results": []any{}})
+	})
+	c, err := api.New(api.Options{Host: h.srv.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := browseBackend{c}
+	ctx := t.Context()
+	for _, q := range []tui.EntityQuery{
+		{CollectionID: "12", TopLevel: true},
+		{Parent: "d2"},
+		{Parent: "d2", Query: "invoice"},
+	} {
+		if _, err := b.Entities(ctx, q, 50); err != nil {
+			t.Fatal(err)
+		}
+	}
+	checks := []map[string]string{
+		{"filter:collection_id": "12", "empty:properties.parent": "true", "filter:schemata": "Document", "offset": "50"},
+		{"filter:properties.parent": "d2", "filter:schemata": "Document"},
+		{"filter:properties.ancestors": "d2", "q": "invoice", "filter:schemata": "Document"},
+	}
+	for i, want := range checks {
+		for k, v := range want {
+			if got[i].Get(k) != v {
+				t.Errorf("query %d: %s = %q, want %q (%v)", i, k, got[i].Get(k), v, got[i])
+			}
+		}
+	}
+	if got[2].Has("filter:properties.parent") {
+		t.Errorf("search in a folder must use ancestors only: %v", got[2])
+	}
+}
+
+func TestBrowseBackendDownload(t *testing.T) {
+	var base string
+	h := newHarness(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/2/entities/d1":
+			reply(w, map[string]any{"id": "d1", "schema": "Pages",
+				"properties": map[string]any{"fileName": []any{"report.pdf"}},
+				"links":      map[string]any{"file": base + "/files/d1"}})
+		case "/files/d1":
+			_, _ = w.Write([]byte("%PDF"))
+		default:
+			t.Errorf("unexpected %s", r.URL)
+		}
+	})
+	base = h.srv.URL
+	c, err := api.New(api.Options{Host: h.srv.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	var progress []string
+	res, err := browseBackend{c}.Download(t.Context(), "d1", dir, false, func(r tui.DownloadResult, name string) {
+		progress = append(progress, fmt.Sprintf("%d %s", r.Fetched, name))
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(filepath.Join(dir, "report.pdf"))
+	if err != nil || string(b) != "%PDF" || res.Fetched != 1 || strings.Join(progress, ",") != "1 report.pdf" {
+		t.Fatalf("file = %q (%v), result = %+v, progress = %q", b, err, res, progress)
 	}
 }

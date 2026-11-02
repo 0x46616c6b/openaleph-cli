@@ -60,7 +60,11 @@ func (v *entityView) title() string {
 func (v *entityView) capturing() bool { return false }
 
 func (v *entityView) keys() []key.Binding {
-	return []key.Binding{keyOpen, keyYank, keyWeb, keyJSON, keyReload}
+	ks := []key.Binding{keyOpen, keyYank, keyWeb, keyJSON, keyReload}
+	if isDocument(v.entity) {
+		ks = append([]key.Binding{keyOpen, keyDownload}, ks[1:]...)
+	}
+	return ks
 }
 
 func (v *entityView) init() tea.Cmd { return v.load() }
@@ -101,6 +105,12 @@ func entityFields(e *env, entity api.Object) []field {
 	if c, ok := entity["collection"].(map[string]any); ok {
 		fields = append(fields, field{name: "collection", value: str(c, "label"), next: func() view {
 			return newEntitiesView(e, c, "", nil)
+		}})
+	}
+	if isDocument(entity) {
+		fields = append(fields, field{name: "contents", value: "files and attachments in it", next: func() view {
+			c, _ := entity["collection"].(map[string]any)
+			return newDocumentsView(e, c, entity)
 		}})
 	}
 	props, _ := entity["properties"].(map[string]any)
@@ -167,6 +177,8 @@ func (v *entityView) update(msg tea.Msg) tea.Cmd {
 			return push(newTextView(v.env, "JSON", string(b)))
 		case key.Matches(msg, keyReload):
 			return v.load()
+		case key.Matches(msg, keyDownload):
+			return downloadDialog(v.env, v.entity)
 		}
 		var cmd tea.Cmd
 		v.table, cmd = v.table.Update(msg)
