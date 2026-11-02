@@ -34,10 +34,9 @@ checksum:
 changelog:
   disable: true
 
-# Attach the artifacts to the draft that release-drafter prepared for this tag
-# and keep its notes.
+# The release is published on GitHub first, with the notes that release-drafter
+# prepared. Attach the artifacts to it and keep its notes.
 release:
-  use_existing_draft: true
   mode: keep-existing
 
 # Homebrew formula in the tap repository 0x46616c6b/homebrew-tap. Install with:
