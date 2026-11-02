@@ -1,10 +1,16 @@
 name: Release
 
-# Runs when a release is published on the Releases page, which also creates the
-# tag. Pushing a tag by hand does not start it.
+# Publishing a release on the Releases page creates its tag, which starts this
+# workflow. Run it by hand with the tag name to attach the binaries to a release
+# that did not get them.
 on:
-  release:
-    types: [published]
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag of the release to build, for example v0.2.1
+        required: true
 
 permissions:
   contents: write
@@ -17,7 +23,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7.0.1
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
 
       - name: Set up Go
@@ -32,4 +38,13 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ inputs.tag || github.ref_name }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+      # GoReleaser cannot update a release that is already published, so it leaves
+      # the release alone and the binaries are attached here.
+      - name: Attach binaries to the release
+        run: gh release upload "$TAG" dist/*.tar.gz dist/*.zip dist/checksums.txt --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag || github.ref_name }}

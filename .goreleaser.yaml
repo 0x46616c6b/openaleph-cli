@@ -35,9 +35,10 @@ changelog:
   disable: true
 
 # The release is published on GitHub first, with the notes that release-drafter
-# prepared. Attach the artifacts to it and keep its notes.
+# prepared. GoReleaser cannot update a published release, so it does not touch
+# it: the release workflow attaches the archives and checksums with `gh`.
 release:
-  mode: keep-existing
+  disable: true
 
 # Homebrew formula in the tap repository 0x46616c6b/homebrew-tap. Install with:
 #   brew install 0x46616c6b/tap/oa
