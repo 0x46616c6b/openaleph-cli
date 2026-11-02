@@ -40,6 +40,7 @@ func NewRootCmd(app *App) *cobra.Command {
 		newSearchCmd(app),
 		newEntityCmd(app),
 		newEntitySetCmd(app),
+		newMappingCmd(app),
 		newAPICmd(app),
 	)
 	addCompatCommands(root, app)
