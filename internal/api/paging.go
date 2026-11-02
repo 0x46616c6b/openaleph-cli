@@ -12,9 +12,11 @@ type Object = map[string]any
 type Page struct {
 	Results []Object `json:"results"`
 	Total   int      `json:"total"`
-	Limit   int      `json:"limit"`
-	Offset  int      `json:"offset"`
-	Next    string   `json:"next"`
+	// TotalType is "gte" when Total is only a lower bound.
+	TotalType string `json:"total_type"`
+	Limit     int    `json:"limit"`
+	Offset    int    `json:"offset"`
+	Next      string `json:"next"`
 }
 
 // ResultSet iterates over all items of a paginated listing, following the
@@ -37,6 +39,10 @@ func (c *Client) resultSet(ctx context.Context, rawURL string, patch func(Object
 
 // Total is the total number of items reported by the server.
 func (rs *ResultSet) Total() int { return rs.page.Total }
+
+// Page returns the page that was fetched last, without the patches that Next
+// applies to its items.
+func (rs *ResultSet) Page() Page { return rs.page }
 
 // Err returns the error that stopped iteration, if any.
 func (rs *ResultSet) Err() error { return rs.err }

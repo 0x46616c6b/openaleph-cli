@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/0x46616c6b/openaleph-cli/internal/api"
 	"github.com/0x46616c6b/openaleph-cli/internal/output"
 )
 
@@ -99,7 +100,7 @@ func newEntitySetItemsCmd(app *App) *cobra.Command {
 			t := output.NewTable(app.IO.Out, "ID", "SCHEMA", "NAME")
 			for _, it := range items {
 				e, _ := it["entity"].(map[string]any)
-				t.Row(str(e, "id"), str(e, "schema"), caption(e))
+				t.Row(str(e, "id"), str(e, "schema"), api.Caption(e))
 			}
 			return t.Flush()
 		},
