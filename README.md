@@ -114,6 +114,8 @@ Collections are referenced by numeric ID or foreign ID.
 | `oa entity stream / write / write-many` | Export and import entities as JSON lines |
 | `oa entity map <mapping.yml>` | Create entities from CSV files with an `ftm map` mapping, printed as JSON lines |
 | `oa entityset list / items / create / delete` | Work with lists and other entity sets |
+| `oa mapping list / view / create / update / delete` | Manage entity mappings stored on the server (`delete` needs `--yes` in scripts) |
+| `oa mapping trigger / flush` | Generate entities from a mapping, or delete what it generated |
 | `oa api <path>` | Call any API endpoint with authentication |
 
 `oa entity map` reads a [FollowTheMoney mapping](https://followthemoney.tech/docs/mappings/) with CSV sources and
