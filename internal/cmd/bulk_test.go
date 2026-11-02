@@ -130,3 +130,30 @@ func TestEntityWriteSingle(t *testing.T) {
 		t.Fatal("empty input must fail")
 	}
 }
+
+func TestEntityMap(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "p.csv"), []byte("name,city\nAnna,Leipzig\nBob,Leipzig\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m := "dataset: demo\nqueries:\n  - csv_url: p.csv\n    entities:\n" +
+		"      city:\n        schema: Address\n        keys: [city]\n        properties:\n          city: {column: city}\n" +
+		"      person:\n        schema: Person\n        keys: [name]\n        properties:\n          name: {column: name}\n          addressEntity: {entity: city}\n"
+	mf := filepath.Join(dir, "m.yml")
+	if err := os.WriteFile(mf, []byte(m), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, func(http.ResponseWriter, *http.Request) { t.Error("map must not call the API") })
+	stdout, _, err := h.run("entity", "map", mf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(stdout), "\n")
+	if len(lines) != 3 { // one shared address, two people
+		t.Fatalf("stdout = %q", stdout)
+	}
+	var e map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &e); err != nil || e["id"] == "" || e["schema"] == "" {
+		t.Fatalf("first = %v err=%v", e, err)
+	}
+}
