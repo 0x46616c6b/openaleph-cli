@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/0x46616c6b/openaleph-cli/internal/output"
 )
 
 const (
@@ -70,12 +72,12 @@ func renderStatusTUI(rows []any, now time.Time, interval time.Duration, color bo
 		body = append(body, []cell{
 			{text: statusID(o), style: ansiDim},
 			{text: label, style: ansiCyan},
-			{text: bar(ratio), style: ansiGreen},
+			{text: output.ProgressBar(ratio, progressWidth), style: ansiGreen},
 			{text: str(o, "todo"), right: true},
 			{text: str(o, "doing"), right: true, style: doingStyle},
 			{text: str(o, "failed"), right: true, style: failStyle},
 			{text: str(o, "finished"), right: true, style: ansiGreen},
-			{text: remaining(str(o, "remaining_time")), right: true},
+			{text: output.Duration(str(o, "remaining_time")), right: true},
 		})
 	}
 
@@ -128,16 +130,4 @@ func renderStatusTUI(rows []any, now time.Time, interval time.Duration, color bo
 	}
 	out = append(out, border("└", "┴", "┘"), "", paint(ansiDim, "Press q to quit"))
 	return strings.Join(out, "\x1b[K\r\n") + "\x1b[K\r\n"
-}
-
-// bar renders a fixed-width progress bar followed by the percentage.
-func bar(ratio float64) string {
-	if ratio < 0 {
-		ratio = 0
-	}
-	if ratio > 1 {
-		ratio = 1
-	}
-	filled := int(ratio*progressWidth + 0.5)
-	return strings.Repeat("█", filled) + strings.Repeat("░", progressWidth-filled) + fmt.Sprintf(" %3.0f%%", ratio*100)
 }

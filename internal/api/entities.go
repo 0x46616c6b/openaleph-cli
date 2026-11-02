@@ -9,6 +9,7 @@ import (
 	"iter"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -58,29 +59,70 @@ func propPush(props map[string]any, prop, value string) {
 
 // SearchOptions configures Search.
 type SearchOptions struct {
-	Query     string
-	Schema    string
-	Schemata  string
-	Filters   []Filter
-	Publisher bool
-	Params    url.Values
+	Query    string
+	Schema   string
+	Schemata string
+	// Schemas matches entities of any of these exact schemas.
+	Schemas []string
+	// AllSchemata searches all schemas instead of only Things when no
+	// schema is given, so relations like Ownership are included.
+	AllSchemata bool
+	Filters     []Filter
+	Publisher   bool
+	Params      url.Values
 }
 
-// Search runs an entity search. Without Schema or Schemata it searches Things.
-func (c *Client) Search(ctx context.Context, o SearchOptions) (*ResultSet, error) {
+func (o SearchOptions) filters() []Filter {
 	filters := append([]Filter(nil), o.Filters...)
 	if o.Schema != "" {
 		filters = append(filters, Filter{"schema", o.Schema})
 	}
+	for _, s := range o.Schemas {
+		filters = append(filters, Filter{"schema", s})
+	}
 	if o.Schemata != "" {
 		filters = append(filters, Filter{"schemata", o.Schemata})
 	}
-	if o.Schema == "" && o.Schemata == "" {
+	if o.Schema == "" && o.Schemata == "" && len(o.Schemas) == 0 && !o.AllSchemata {
 		filters = append(filters, Filter{"schemata", "Thing"})
 	}
-	return c.resultSet(ctx, c.URL("entities", query(o.Query, filters, o.Params)), func(e Object) Object {
+	return filters
+}
+
+// Search runs an entity search. Without Schema, Schemata, Schemas or
+// AllSchemata it searches Things.
+func (c *Client) Search(ctx context.Context, o SearchOptions) (*ResultSet, error) {
+	return c.resultSet(ctx, c.URL("entities", query(o.Query, o.filters(), o.Params)), func(e Object) Object {
 		return c.patchEntity(e, o.Publisher, nil)
 	})
+}
+
+// FacetValue is one value of a search facet with the number of matches.
+type FacetValue struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	Count int    `json:"count"`
+}
+
+// SearchFacet counts the matches of a search per value of a facet, such as
+// schema or countries, without returning entities.
+func (c *Client) SearchFacet(ctx context.Context, o SearchOptions, facet string, size int) ([]FacetValue, error) {
+	params := url.Values{}
+	for k, v := range o.Params {
+		params[k] = v
+	}
+	params.Set("limit", "0")
+	params.Set("facet", facet)
+	params.Set("facet_size:"+facet, strconv.Itoa(size))
+	var out struct {
+		Facets map[string]struct {
+			Values []FacetValue `json:"values"`
+		} `json:"facets"`
+	}
+	if err := c.Request(ctx, "GET", c.URL("entities", query(o.Query, o.filters(), params)), nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Facets[facet].Values, nil
 }
 
 // GetEntity fetches a single entity.
@@ -247,4 +289,22 @@ func (c *Client) Match(ctx context.Context, entity Object, collectionIDs []strin
 		page.Results[i] = c.patchEntity(r, publisher, nil)
 	}
 	return page.Results, nil
+}
+
+// Caption returns a display name for an entity: its caption, or else the first
+// name, title or file name property.
+func Caption(e Object) string {
+	if s, ok := e["caption"].(string); ok && s != "" {
+		return s
+	}
+	if props, ok := e["properties"].(map[string]any); ok {
+		for _, k := range []string{"name", "title", "fileName"} {
+			if vals, ok := props[k].([]any); ok && len(vals) > 0 {
+				if s, ok := vals[0].(string); ok {
+					return s
+				}
+			}
+		}
+	}
+	return ""
 }

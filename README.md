@@ -110,6 +110,7 @@ Collections are referenced by numeric ID or foreign ID.
 | `oa collection upload <collection> <path>` | Upload a directory, resumable, parallel |
 | `oa collection download <collection>` | Rebuild a collection as a folder tree |
 | `oa search <query>` | Search entities |
+| `oa browse` | Browse collections and entities in an interactive terminal UI |
 | `oa entity view / delete / download` | Work with single entities |
 | `oa entity stream / write / write-many` | Export and import entities as JSON lines |
 | `oa entity map <mapping.yml>` | Create entities from CSV files with an `ftm map` mapping, printed as JSON lines |
@@ -130,6 +131,42 @@ oa collection list --json id,label
 oa search "acme" --jq '.[].id'
 oa api collections -f limit=5 --jq '.results[].label'
 ```
+
+### Interactive browser
+
+`oa browse` opens a full-screen browser for collections and entities. Like the web UI, it lists datasets and
+investigations (collections of the category `casefile`) separately; `tab` switches between them. Start it with
+`--collection leak_a` to go
+straight to a collection, with `--search "acme"` to start with an entity search (both together search in the
+collection), `--schema Person,Address` to filter by schema, or with `--status` to start in the processing status. Rows load page by page as you scroll.
+
+| Key | Action |
+| --- | --- |
+| `enter`, `l` | Open the selected collection, entity, linked entity or value |
+| `esc`, `h` | Go back |
+| `tab` | Switch between datasets and investigations |
+| `/` | Search the current list (`enter` runs it, `esc` cancels) |
+| `s` | Search entities in all collections |
+| `j`/`k`, `g`/`G`, `ctrl-d`/`ctrl-u` | Move, jump to top or bottom, half page |
+| `y` | Copy the ID (or the shown text) to the clipboard, also over SSH |
+| `o` | Open in the web browser |
+| `J` | Show the raw JSON of an entity |
+| `f` | Filter an entity list by schema: type to narrow, `space` selects several, `enter` applies |
+| `F` | Clear the schema filter |
+| `p` | Show the processing status, refreshed every 3 seconds |
+| `a` | Menu with the collection actions below (in the datasets and investigations lists) |
+| `n` | Create a dataset or an investigation, depending on the list |
+| `e` | Edit the selected collection |
+| `D` | Delete the selected collection (type its foreign ID to confirm) |
+| `i` | Re-index the selected collection, optionally flushing the index first |
+| `I` | Re-ingest the selected collection, optionally indexing while processing |
+| `r` | Reload |
+| `?` | Show all keys |
+| `ctrl-z` | Suspend to the shell (`fg` returns) |
+| `q` | Quit |
+
+`oa browse --debug oa.log` logs every API request with status and duration, and the start of error responses, to
+`oa.log`. The API key is not logged, but search terms and IDs are, so the file is only readable by you.
 
 ## Migrating from the Python client
 

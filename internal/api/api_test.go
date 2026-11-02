@@ -7,6 +7,7 @@ import (
 	"iter"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -343,5 +344,42 @@ func TestCreateEntitySetSendsJSON(t *testing.T) {
 	out, err := c.CreateEntitySet(context.Background(), "4", "list", "L", "")
 	if err != nil || out["id"] != "es" {
 		t.Fatalf("out=%v err=%v", out, err)
+	}
+}
+
+func TestSearchSchemasAndFacet(t *testing.T) {
+	var queries []url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		queries = append(queries, r.URL.Query())
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"total": 3, "results": [], "facets": {"schema": {"values": [
+			{"id": "Person", "label": "People", "count": 2}, {"id": "Ownership", "label": "Ownership", "count": 1}]}}}`))
+	}))
+	defer srv.Close()
+	c, err := New(Options{Host: srv.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := t.Context()
+
+	if _, err := c.Search(ctx, SearchOptions{Schemas: []string{"Person", "Address"}}); err != nil {
+		t.Fatal(err)
+	}
+	if q := queries[0]; strings.Join(q["filter:schema"], ",") != "Person,Address" || q.Has("filter:schemata") {
+		t.Fatalf("schemas query = %v", q)
+	}
+
+	vals, err := c.SearchFacet(ctx, SearchOptions{Query: "acme", AllSchemata: true,
+		Filters: []Filter{{"collection_id", "7"}}}, "schema", 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := queries[1]
+	if q.Get("limit") != "0" || q.Get("facet") != "schema" || q.Get("facet_size:schema") != "100" ||
+		q.Get("q") != "acme" || q.Get("filter:collection_id") != "7" || q.Has("filter:schemata") {
+		t.Fatalf("facet query = %v", q)
+	}
+	if len(vals) != 2 || vals[0] != (FacetValue{"Person", "People", 2}) {
+		t.Fatalf("values = %+v", vals)
 	}
 }

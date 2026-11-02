@@ -77,7 +77,7 @@ func newSearchCmd(app *App) *cobra.Command {
 			t := output.NewTable(app.IO.Out, "ID", "SCHEMA", "NAME", "COLLECTION")
 			for _, it := range items {
 				coll, _ := it["collection"].(map[string]any)
-				t.Row(str(it, "id"), str(it, "schema"), caption(it), str(coll, "label"))
+				t.Row(str(it, "id"), str(it, "schema"), api.Caption(it), str(coll, "label"))
 			}
 			if err := t.Flush(); err != nil {
 				return err
@@ -95,21 +95,4 @@ func newSearchCmd(app *App) *cobra.Command {
 	cmd.Flags().BoolVarP(&publisher, "publisher", "p", false, "Add publisher info from the collection to JSON output")
 	jf.add(cmd)
 	return cmd
-}
-
-// caption returns a display name for an entity.
-func caption(e api.Object) string {
-	if s := str(e, "caption"); s != "" {
-		return s
-	}
-	if props, ok := e["properties"].(map[string]any); ok {
-		for _, k := range []string{"name", "title", "fileName"} {
-			if vals, ok := props[k].([]any); ok && len(vals) > 0 {
-				if s, ok := vals[0].(string); ok {
-					return s
-				}
-			}
-		}
-	}
-	return ""
 }
