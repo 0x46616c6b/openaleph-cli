@@ -178,8 +178,7 @@ func (f *formView) update(msg tea.Msg) tea.Cmd {
 		case key.Matches(msg, keyPrevField):
 			return f.setFocus(f.focus - 1)
 		}
-		switch fl.kind {
-		case choiceField:
+		if fl.kind == choiceField {
 			switch msg.String() {
 			case "left", "h":
 				fl.choice = (fl.choice - 1 + len(fl.choices)) % len(fl.choices)
