@@ -112,8 +112,13 @@ Collections are referenced by numeric ID or foreign ID.
 | `oa search <query>` | Search entities |
 | `oa entity view / delete / download` | Work with single entities |
 | `oa entity stream / write / write-many` | Export and import entities as JSON lines |
+| `oa entity map <mapping.yml>` | Create entities from CSV files with an `ftm map` mapping, printed as JSON lines |
 | `oa entityset list / items / create / delete` | Work with lists and other entity sets |
 | `oa api <path>` | Call any API endpoint with authentication |
+
+`oa entity map` reads a [FollowTheMoney mapping](https://followthemoney.tech/docs/mappings/) with CSV sources and
+prints the entities it creates, so `oa entity map people.yml | oa entity write-many my_leak` loads them. SQL sources
+are not supported, and the generated entity IDs are stable but not guaranteed to match those of `ftm map`.
 
 List-style commands print tables on a terminal. Add `--json fields` (or `--json all`) for JSON and `--jq expression`
 to filter it:

@@ -15,6 +15,7 @@ func newEntityCmd(app *App) *cobra.Command {
 		newEntityStreamCmd(app),
 		newEntityWriteCmd(app),
 		newEntityWriteManyCmd(app),
+		newEntityMapCmd(app),
 		newEntityDownloadCmd(app),
 	)
 	return cmd
