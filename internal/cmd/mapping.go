@@ -60,7 +60,7 @@ func loadMappingQuery(path string) (api.Object, error) {
 			return nil, fmt.Errorf("%s: the server stores only the entities of a mapping, remove %q", path, k)
 		}
 	}
-	out := api.Object(entities)
+	out := entities
 	// Round-trip through JSON to make sure the body can be encoded.
 	b, err := json.Marshal(out)
 	if err != nil {
