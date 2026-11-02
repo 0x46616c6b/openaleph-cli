@@ -332,23 +332,6 @@ func TestAPIErrorSurfaced(t *testing.T) {
 	}
 }
 
-func TestRemaining(t *testing.T) {
-	cases := map[string]string{
-		"PT5H12M42.885S":  "5h12m",
-		"P2DT9H28M10.95S": "2d9h",
-		"PT0S":            "-",
-		"PT45S":           "0m45s",
-		"PT8M":            "8m",
-		"":                "",
-		"soon":            "soon",
-	}
-	for in, want := range cases {
-		if got := remaining(in); got != want {
-			t.Errorf("remaining(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
 func TestRenderStatusTUI(t *testing.T) {
 	rows := []any{map[string]any{"todo": float64(2), "doing": float64(1), "failed": float64(1), "finished": float64(6), "remaining_time": "PT5H12M42S", "collection": map[string]any{"id": "7", "label": "Leak A"}}}
 	out := renderStatusTUI(rows, time.Unix(0, 0), 3*time.Second, false)

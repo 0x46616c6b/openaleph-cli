@@ -7,9 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"regexp"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -69,7 +66,7 @@ func renderStatus(w io.Writer, results []any) error {
 	t := output.NewTable(w, "ID", "COLLECTION", "TODO", "DOING", "FAILED", "FINISHED", "REMAINING")
 	for _, r := range results {
 		o, _ := r.(map[string]any)
-		t.Row(statusID(o), statusLabel(o), str(o, "todo"), str(o, "doing"), str(o, "failed"), str(o, "finished"), remaining(str(o, "remaining_time")))
+		t.Row(statusID(o), statusLabel(o), str(o, "todo"), str(o, "doing"), str(o, "failed"), str(o, "finished"), output.Duration(str(o, "remaining_time")))
 	}
 	return t.Flush()
 }
@@ -233,37 +230,4 @@ func newStatusWatchCmd(app *App) *cobra.Command {
 	cmd.Flags().DurationVarP(&interval, "interval", "i", 3*time.Second, "Refresh interval")
 	cmd.Flags().BoolVar(&exitStatus, "exit-status", false, "Exit with a non-zero status if any task failed")
 	return cmd
-}
-
-var isoDuration = regexp.MustCompile(`^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$`)
-
-// remaining renders an ISO 8601 duration such as PT5H12M42.8S as "5h12m".
-// Unparsable values are returned unchanged, zero durations as "-".
-func remaining(iso string) string {
-	m := isoDuration.FindStringSubmatch(iso)
-	if m == nil {
-		return iso
-	}
-	num := func(s string) int {
-		f, _ := strconv.ParseFloat(s, 64)
-		return int(f)
-	}
-	days, hours, mins, secs := num(m[1]), num(m[2]), num(m[3]), num(m[4])
-	var parts []string
-	if days > 0 {
-		parts = append(parts, fmt.Sprintf("%dd", days))
-	}
-	if hours > 0 {
-		parts = append(parts, fmt.Sprintf("%dh", hours))
-	}
-	if mins > 0 && days == 0 {
-		parts = append(parts, fmt.Sprintf("%dm", mins))
-	}
-	if len(parts) == 0 {
-		if secs > 0 || mins > 0 {
-			return fmt.Sprintf("%dm%ds", mins, secs)
-		}
-		return "-"
-	}
-	return strings.Join(parts, "")
 }
