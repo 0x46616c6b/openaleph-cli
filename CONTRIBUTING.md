@@ -63,8 +63,9 @@ requests. The workflow in `.github/workflows/release-drafter.yml` keeps a draft 
   touches `.github/` or the docs stays in the notes.
 - Commits that are pushed directly to `main` without a pull request do not appear in the draft.
 - To release, check the draft on the Releases page and publish it, which creates its tag (for example `v0.2.0`).
-  Publishing starts the release workflow, which builds the binaries with GoReleaser and attaches them to the
-  published release, keeping its notes. Do not push the tag by hand: the workflow only reacts to a published release.
+  The tag starts the release workflow, which builds the binaries with GoReleaser and attaches them to the published
+  release, keeping its notes. If a release did not get its binaries, run the "Release" workflow by hand from the
+  Actions tab and enter the tag.
 
 ## Homebrew tap
 
