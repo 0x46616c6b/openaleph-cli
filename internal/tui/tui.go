@@ -312,6 +312,7 @@ func (m model) update(msg tea.Msg) (model, tea.Cmd) {
 		return m, nil
 	case downloadMsg:
 		m.status, m.isErr = msg.status()
+		m.status = cleanText(m.status)
 		if msg.done {
 			return m, nil
 		}
@@ -321,7 +322,8 @@ func (m model) update(msg tea.Msg) (model, tea.Cmd) {
 		m.layout()
 		return m, msg.v.init()
 	case statusMsg:
-		m.status, m.isErr = msg.text, msg.err
+		// Errors can quote server responses.
+		m.status, m.isErr = cleanText(msg.text), msg.err
 		return m, nil
 	case targeted:
 		for _, v := range m.stack {
@@ -411,15 +413,15 @@ func (m model) ShortHelp() []key.Binding {
 	}
 	var ks []key.Binding
 	var hide map[string]bool
-	if l, ok := m.top().(*listView); ok {
-		hide = l.footerHide
+	if h, ok := m.top().(interface{ footerHidden() map[string]bool }); ok {
+		hide = h.footerHidden()
 	}
 	for _, k := range m.top().keys() {
 		if !secondaryKeys[k.Help().Key] && !hide[k.Help().Key] {
 			ks = append(ks, k)
 		}
 	}
-	if _, ok := m.top().(*statusView); !ok {
+	if _, ok := m.top().(*statusView); !ok && !hide["p"] {
 		ks = append(ks, global.Status)
 	}
 	if len(m.stack) > 1 {

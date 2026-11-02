@@ -166,6 +166,19 @@ collection), `--schema Person,Address` to filter by schema, or with `--status` t
 | `ctrl-z` | Suspend to the shell (`fg` returns) |
 | `q` | Quit |
 
+Documents open on their content, and `tab` switches to their properties:
+
+- emails show their headers (from, date, subject, to, cc), their attachments and the body; `A` opens the attachments
+  and `T` the thread (by the thread topic, or else by following the replies), oldest first,
+- tables show their rows (the first 1,000), with `<` and `>` to scroll through wide tables,
+- PDFs show their text page by page, loading more pages as you scroll,
+- text and HTML documents show their text.
+
+Lists that contain emails get an ATT column with the number of attachments (one extra request per page).
+
+In the content, `/` finds text, `n` and `N` jump between the hits, and `Y` copies the text. Text from documents is
+shown without terminal control characters, so a document cannot change the title or the clipboard of your terminal.
+
 In the documents of a collection, `enter` opens folders, and documents such as emails list their attachments under
 "contents". A search (`/`) in a folder covers all folders below it.
 

@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -64,6 +65,10 @@ type listView struct {
 	actions []action
 	// investigations marks the investigations list (for new collections).
 	investigations bool
+	height         int
+	// hasEmails adds the attachments column; attach holds the counts.
+	hasEmails bool
+	attach    map[string]int
 	// footerHide lists keys left out of the footer to keep it within 80
 	// columns; ? shows them.
 	footerHide map[string]bool
@@ -89,7 +94,7 @@ func newListView(e *env, name, noun, query string) *listView {
 	in.Placeholder = "search"
 	in.SetValue(query)
 	t := table.New(table.WithKeyMap(navKeys), table.WithStyles(e.theme.table), table.WithFocused(true))
-	return &listView{env: e, vid: e.nextID(), name: name, noun: noun, query: query, input: in, table: t}
+	return &listView{env: e, vid: e.nextID(), name: name, noun: noun, query: query, input: in, table: t, attach: map[string]int{}}
 }
 
 // newCollectionsView lists datasets or investigations.
@@ -177,6 +182,8 @@ func (l *listView) setSchemas(schemas []string) tea.Cmd {
 
 func (l *listView) id() int { return l.vid }
 
+func (l *listView) footerHidden() map[string]bool { return l.footerHide }
+
 func (l *listView) title() string {
 	t := l.name
 	if l.query != "" {
@@ -210,6 +217,7 @@ func (l *listView) selected() api.Object {
 func (l *listView) reload() tea.Cmd {
 	l.gen++
 	l.items, l.total, l.more = nil, 0, false
+	l.attach = map[string]int{}
 	l.table.SetRows(nil)
 	l.table.GotoTop()
 	return l.load(0)
@@ -222,7 +230,7 @@ func (l *listView) load(offset int) tea.Cmd {
 	ctx, fetch, to, gen := l.env.ctx, l.fetch, l.vid, l.gen
 	return func() tea.Msg {
 		p, err := fetch(ctx, q, offset)
-		return pageMsg{to: to, gen: gen, offset: offset, page: p, err: err}
+		return pageMsg{to: to, gen: gen, offset: offset, page: cleanPage(p), err: err}
 	}
 }
 
@@ -250,8 +258,22 @@ func (l *listView) update(msg tea.Msg) tea.Cmd {
 		l.items = append(l.items, msg.page.Items...)
 		l.total, l.atLeast = msg.page.Total, msg.page.TotalAtLeast
 		l.more = msg.page.More && len(msg.page.Items) > 0
+		if !l.hasEmails && slices.ContainsFunc(msg.page.Items, isEmail) {
+			// The attachments column appears with the first email.
+			l.hasEmails = true
+			l.resize(l.width, l.height)
+		}
 		l.syncRows()
-		return l.loadMore()
+		return tea.Batch(l.loadMore(), l.countAttachments(msg.page.Items))
+	case attachCountsMsg:
+		if msg.gen != l.gen {
+			return nil
+		}
+		for id, n := range msg.counts {
+			l.attach[id] = n
+		}
+		l.syncRows()
+		return nil
 	case tea.KeyPressMsg:
 		if l.input.Focused() {
 			switch msg.String() {
@@ -307,8 +329,9 @@ func (l *listView) update(msg tea.Msg) tea.Cmd {
 func (l *listView) syncRows() {
 	rows := make([]table.Row, len(l.items))
 	for i, it := range l.items {
-		row := make(table.Row, len(l.cols))
-		for j, c := range l.cols {
+		cols := l.columns()
+		row := make(table.Row, len(cols))
+		for j, c := range cols {
 			row[j] = oneLine(c.value(it))
 		}
 		rows[i] = row
@@ -321,11 +344,11 @@ func (l *listView) syncRows() {
 }
 
 func (l *listView) resize(width, height int) {
-	l.width = width
+	l.width, l.height = width, height
 	l.input.SetWidth(max(width-4, 1))
 	// Columns and styles first: SetHeight subtracts the height of the
 	// column titles. The input line and the count line take one row each.
-	l.table.SetColumns(layoutColumns(l.cols, width))
+	l.table.SetColumns(layoutColumns(l.columns(), width))
 	l.table.SetStyles(l.env.theme.table)
 	l.table.SetWidth(width)
 	l.table.SetHeight(max(height-2, 2))
@@ -439,4 +462,65 @@ func count(v any) string {
 
 func oneLine(s string) string {
 	return strings.Join(strings.Fields(s), " ")
+}
+
+func isEmail(o api.Object) bool {
+	s := str(o, "schema")
+	return s == "Email" || s == "Message"
+}
+
+type attachCountsMsg struct {
+	to, gen int
+	counts  map[string]int
+}
+
+func (m attachCountsMsg) target() int { return m.to }
+
+// columns are the columns of the list, with the attachments column after
+// the name once the list shows emails.
+func (l *listView) columns() []column {
+	if !l.hasEmails {
+		return l.cols
+	}
+	att := column{title: "ATT", width: 4, value: func(o api.Object) string {
+		if n := l.attach[str(o, "id")]; n > 0 {
+			return fmt.Sprintf("📎%d", n)
+		}
+		return ""
+	}}
+	cols := make([]column, 0, len(l.cols)+1)
+	for _, c := range l.cols {
+		cols = append(cols, c)
+		if c.title == "NAME" {
+			cols = append(cols, att)
+		}
+	}
+	return cols
+}
+
+// countAttachments asks for the attachment counts of the emails in items,
+// with one request for the page.
+func (l *listView) countAttachments(items []api.Object) tea.Cmd {
+	reader, ok := l.env.backend.(DocumentReader)
+	if !ok {
+		return nil
+	}
+	var ids []string
+	for _, it := range items {
+		if isEmail(it) {
+			ids = append(ids, str(it, "id"))
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	ctx, to, gen := l.env.ctx, l.vid, l.gen
+	return func() tea.Msg {
+		counts, err := reader.AttachmentCounts(ctx, ids)
+		if err != nil {
+			// Without counts the list still works; say why they are missing.
+			return statusMsg{text: "attachments: " + err.Error(), err: true}
+		}
+		return attachCountsMsg{to: to, gen: gen, counts: counts}
+	}
 }

@@ -70,7 +70,10 @@ func (f *fakeBackend) Entities(_ context.Context, q EntityQuery, offset int) (Pa
 	f.mu.Lock()
 	f.calls = append(f.calls, entityCall{q.Query, q.CollectionID, q.Schemas, offset, q.Parent, q.TopLevel})
 	f.mu.Unlock()
-	if (q.Parent != "" || q.TopLevel) && f.docs != nil {
+	if q.Parent != "" || q.TopLevel {
+		if f.docs == nil {
+			return Page{}, nil
+		}
 		return f.docs(q), nil
 	}
 	return f.entities(q.Query, q.CollectionID, offset), nil

@@ -101,6 +101,9 @@ func TestDocumentsTabAndFolders(t *testing.T) {
 	}
 	s.keys("enter", "enter")
 	s.depth(4)
+	// Emails open on their content; tab shows the properties.
+	s.contains("Content", "Properties", "(no text)")
+	s.keys("tab")
 	s.contains("mail.eml", "contents", "files and attachments in it ›")
 	s.keys("j", "j", "j", "enter")
 	s.depth(5)

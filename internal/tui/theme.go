@@ -25,6 +25,11 @@ type theme struct {
 
 	// Dialogs, forms and menus.
 	dialog, title, label, focus, choice lipgloss.Style
+
+	// Search hits in text, and the current one.
+	highlight, selectedHighlight lipgloss.Style
+	// tab and activeTab are the tabs of the entity view.
+	tab, activeTab lipgloss.Style
 }
 
 func fg(c string) lipgloss.Style { return lipgloss.NewStyle().Foreground(lipgloss.Color(c)) }
@@ -65,6 +70,11 @@ func newTheme() *theme {
 		label:  lipgloss.NewStyle().Foreground(gray),
 		focus:  lipgloss.NewStyle().Bold(true).Foreground(pink),
 		choice: lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("231")).Background(purple).Padding(0, 1),
+
+		highlight:         lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(lipgloss.Color("183")),
+		selectedHighlight: lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("231")).Background(pink),
+		tab:               lipgloss.NewStyle().Foreground(gray).Padding(0, 1),
+		activeTab:         lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("231")).Background(purple).Padding(0, 1),
 	}
 }
 

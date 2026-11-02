@@ -74,6 +74,9 @@ func (v *statusView) load() tea.Cmd {
 	ctx, b, to := v.env.ctx, v.env.backend, v.vid
 	return func() tea.Msg {
 		rows, err := b.Status(ctx)
+		for _, r := range rows {
+			cleanValue(r)
+		}
 		return statusRowsMsg{to: to, rows: rows, at: time.Now(), err: err}
 	}
 }

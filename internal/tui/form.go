@@ -157,7 +157,7 @@ func (f *formView) update(msg tea.Msg) tea.Cmd {
 		f.saving = false
 		if msg.err != nil {
 			// Stay in the form so the input can be fixed.
-			f.err = msg.err.Error()
+			f.err = cleanText(msg.err.Error())
 			return nil
 		}
 		return f.done(msg.result)

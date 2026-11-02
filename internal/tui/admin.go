@@ -143,6 +143,9 @@ func collectionForm(e *env, admin CollectionAdmin, l *listView, c api.Object) *f
 			} else {
 				res, err = admin.UpdateCollection(ctx, c, data)
 			}
+			if res != nil {
+				cleanValue(res)
+			}
 			return formDoneMsg{to: to, result: res, err: err}
 		}
 	}
