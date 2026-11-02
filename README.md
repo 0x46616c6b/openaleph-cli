@@ -144,13 +144,14 @@ collection), `--schema Person,Address` to filter by schema, or with `--status` t
 | --- | --- |
 | `enter`, `l` | Open the selected collection, entity, linked entity or value |
 | `esc`, `h` | Go back |
-| `tab` | Switch between datasets and investigations |
+| `tab` | Switch between datasets and investigations; in a collection, between its entities and its documents |
 | `/` | Search the current list (`enter` runs it, `esc` cancels) |
 | `s` | Search entities in all collections |
 | `j`/`k`, `g`/`G`, `ctrl-d`/`ctrl-u` | Move, jump to top or bottom, half page |
 | `y` | Copy the ID (or the shown text) to the clipboard, also over SSH |
 | `o` | Open in the web browser |
 | `J` | Show the raw JSON of an entity |
+| `d` | Download a document, or a folder with everything in it, in the background |
 | `f` | Filter an entity list by schema: type to narrow, `space` selects several, `enter` applies |
 | `F` | Clear the schema filter |
 | `p` | Show the processing status, refreshed every 3 seconds |
@@ -165,8 +166,12 @@ collection), `--schema Person,Address` to filter by schema, or with `--status` t
 | `ctrl-z` | Suspend to the shell (`fg` returns) |
 | `q` | Quit |
 
+In the documents of a collection, `enter` opens folders, and documents such as emails list their attachments under
+"contents". A search (`/`) in a folder covers all folders below it.
+
 `oa browse --debug oa.log` logs every API request with status and duration, and the start of error responses, to
-`oa.log`. The API key is not logged, but search terms and IDs are, so the file is only readable by you.
+`oa.log`. The API key and credentials in links (such as the signature of a pre-signed storage link a download is
+redirected to) are not logged, but search terms and IDs are, so the file is only readable by you.
 
 ## Migrating from the Python client
 

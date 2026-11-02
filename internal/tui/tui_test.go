@@ -20,6 +20,8 @@ type entityCall struct {
 	query, collection string
 	schemas           []string
 	offset            int
+	parent            string
+	topLevel          bool
 }
 
 type fakeBackend struct {
@@ -33,6 +35,8 @@ type fakeBackend struct {
 	statusCalls int
 
 	schemaCounts []api.FacetValue
+	// docs answers folder queries (Parent or TopLevel).
+	docs         func(q EntityQuery) Page
 	facetQueries []EntityQuery
 }
 
@@ -64,8 +68,11 @@ func (f *fakeBackend) Collections(_ context.Context, q string, investigations bo
 
 func (f *fakeBackend) Entities(_ context.Context, q EntityQuery, offset int) (Page, error) {
 	f.mu.Lock()
-	f.calls = append(f.calls, entityCall{q.Query, q.CollectionID, q.Schemas, offset})
+	f.calls = append(f.calls, entityCall{q.Query, q.CollectionID, q.Schemas, offset, q.Parent, q.TopLevel})
 	f.mu.Unlock()
+	if (q.Parent != "" || q.TopLevel) && f.docs != nil {
+		return f.docs(q), nil
+	}
 	return f.entities(q.Query, q.CollectionID, offset), nil
 }
 
@@ -215,6 +222,8 @@ func (s *session) keys(keys ...string) {
 			msg = tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}
 		case "ctrl+s":
 			msg = tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl}
+		case "backspace":
+			msg = tea.KeyPressMsg{Code: tea.KeyBackspace}
 		case "ctrl+z":
 			msg = tea.KeyPressMsg{Code: 'z', Mod: tea.ModCtrl}
 		default:

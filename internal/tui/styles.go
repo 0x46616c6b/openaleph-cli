@@ -28,7 +28,7 @@ var (
 	keyReload = key.NewBinding(key.WithKeys("r", "ctrl+r"), key.WithHelp("r", "reload"))
 	keyAll    = key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "search all"))
 	keyJSON   = key.NewBinding(key.WithKeys("J"), key.WithHelp("J", "raw JSON"))
-	keySchema = key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "filter schema"))
+	keySchema = key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "schema"))
 
 	keyClearSchema = key.NewBinding(key.WithKeys("F"), key.WithHelp("F", "clear filter"))
 )
