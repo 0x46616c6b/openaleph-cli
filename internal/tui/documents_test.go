@@ -212,9 +212,9 @@ func TestListFootersFit80(t *testing.T) {
 			}
 		}
 	}
-	check("entities", "tab documents", "f schema", "p status")
+	check("entities", "tab documents", "f schema")
 	s.keys("tab")
-	check("documents", "tab entities", "d download", "p status")
+	check("documents", "tab entities", "d download")
 	s.keys("enter")
 	check("document", "d download")
 }

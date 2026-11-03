@@ -200,7 +200,7 @@ func reindexDialog(e *env, admin CollectionAdmin, c api.Object) *confirmView {
 		return func() tea.Msg { return dialogDoneMsg{to: to, err: admin.ReindexCollection(ctx, id, flush)} }
 	}
 	d.done = func() tea.Cmd {
-		return status(fmt.Sprintf("Re-index of %s started · p shows progress", collectionName(c)))
+		return status(fmt.Sprintf("Re-index of %s started · the Status tab shows progress", collectionName(c)))
 	}
 	return d
 }
@@ -213,7 +213,7 @@ func reingestDialog(e *env, admin CollectionAdmin, c api.Object) *confirmView {
 		return func() tea.Msg { return dialogDoneMsg{to: to, err: admin.ReingestCollection(ctx, id, index)} }
 	}
 	d.done = func() tea.Cmd {
-		return status(fmt.Sprintf("Re-ingest of %s started · p shows progress", collectionName(c)))
+		return status(fmt.Sprintf("Re-ingest of %s started · the Status tab shows progress", collectionName(c)))
 	}
 	return d
 }

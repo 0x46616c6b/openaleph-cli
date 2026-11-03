@@ -221,6 +221,8 @@ func (s *session) keys(keys ...string) {
 			msg = tea.KeyPressMsg{Code: tea.KeyRight}
 		case "tab":
 			msg = tea.KeyPressMsg{Code: tea.KeyTab}
+		case "shift+tab":
+			msg = tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift}
 		case "space":
 			msg = tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}
 		case "ctrl+s":
@@ -268,7 +270,7 @@ func (s *session) depth(want int) {
 func TestBrowseCollectionsToEntity(t *testing.T) {
 	f := newFake()
 	s := start(t, Options{Backend: f, Host: "https://aleph.example.org"})
-	s.contains("Datasets │ Investigations", "Leak A", "Registry B", "48,210", "https://aleph.example.org", "1 of 2 datasets")
+	s.contains("Datasets │ Investigations │ Status", "Leak A", "Registry B", "48,210", "https://aleph.example.org", "1 of 2 datasets")
 
 	s.keys("enter")
 	s.depth(2)
@@ -425,8 +427,8 @@ func TestStalePagesAreDropped(t *testing.T) {
 func TestHelpToggle(t *testing.T) {
 	s := start(t, Options{Backend: newFake()})
 	s.send(tea.WindowSizeMsg{Width: 80, Height: 20})
-	// The footer of the first screen fits 80 columns and shows the way to the status.
-	s.contains("enter open", "tab switch", "p status", "q quit")
+	// The footer of the first screen fits 80 columns.
+	s.contains("enter open", "tab switch", "q quit")
 	if strings.Contains(s.screen(), "copy id") {
 		t.Fatal("secondary keys belong in the full help")
 	}
@@ -477,8 +479,8 @@ func TestStatusView(t *testing.T) {
 		{statusRow("13", "Registry B", 5, 0, 0, 5), statusRow("14", "Leak C", 1, 0, 0, 1)},
 	}
 	s := start(t, Options{Backend: f, Status: true})
-	s.depth(2)
-	s.contains("Datasets ❯ Status", "Leak A", "Registry B", "70%", "5h12m", "2 collections · 35% overall", "every 3s")
+	s.depth(1)
+	s.contains("Datasets │ Investigations │ Status", "Leak A", "Registry B", "70%", "5h12m", "2 collections · 35% overall", "every 3s")
 
 	// The cursor follows the collection across refreshes.
 	s.keys("j")
@@ -500,37 +502,46 @@ func TestStatusView(t *testing.T) {
 		t.Fatalf("clipboard = %q", s.clips)
 	}
 	s.keys("enter")
-	s.depth(3)
+	s.depth(2)
 	if c := f.lastCall(); c.collection != "13" {
 		t.Fatalf("entities call = %+v", c)
 	}
 	s.contains("Status ❯ Registry B")
 
-	// Back and away: ticks for a popped status view are dropped.
-	s.keys("esc", "esc")
-	s.depth(1)
-	s.send(statusTickMsg{to: v.vid})
-	if f.statusCalls != 2 {
-		t.Fatalf("popped status view refreshed: %d calls", f.statusCalls)
-	}
 }
 
-func TestStatusKeyAndEmpty(t *testing.T) {
+func TestStatusTab(t *testing.T) {
 	f := newFake()
-	s := start(t, Options{Backend: f, Collection: f.collections[0]})
-	s.keys("p")
-	s.depth(3)
-	s.contains("no collections are being processed")
-	// p on the status view does not stack another one.
-	s.keys("p")
-	s.depth(3)
-
-	// p in the search input is text.
-	s.keys("esc", "/", "p")
-	s.depth(2)
-	if v := s.model().top().(*listView); v.input.Value() != "p" {
-		t.Fatalf("input = %q", v.input.Value())
+	s := start(t, Options{Backend: f})
+	if f.statusCalls != 0 {
+		t.Fatalf("status loaded before its tab was opened: %d calls", f.statusCalls)
 	}
+	// tab cycles through datasets, investigations and the status.
+	s.keys("tab", "tab")
+	s.depth(1)
+	v, ok := s.model().top().(*statusView)
+	if !ok {
+		t.Fatalf("top = %T, want the status", s.model().top())
+	}
+	s.contains("no collections are being processed")
+	if f.statusCalls != 1 {
+		t.Fatalf("status calls = %d", f.statusCalls)
+	}
+	s.keys("tab")
+	s.contains("1 of 2 datasets")
+	// On another tab the status skips its refresh and catches up when shown.
+	s.send(statusTickMsg{to: v.vid})
+	if f.statusCalls != 1 {
+		t.Fatalf("hidden status refreshed: %d calls", f.statusCalls)
+	}
+	s.keys("shift+tab")
+	if s.model().top() != v || f.statusCalls != 2 {
+		t.Fatalf("top = %T, status calls = %d", s.model().top(), f.statusCalls)
+	}
+
+	// Deeper in, tab belongs to the view and p is no key anymore.
+	s.keys("shift+tab", "enter", "p")
+	s.depth(2)
 }
 
 func TestStatusOldServerRows(t *testing.T) {
@@ -554,7 +565,7 @@ func TestFitsScreen(t *testing.T) {
 	s := start(t, Options{Backend: f, Host: "https://aleph.example.org"})
 	for _, size := range [][2]int{{80, 20}, {120, 30}, {50, 12}} {
 		s.send(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
-		for _, keys := range [][]string{nil, {"enter"}, {"enter"}, {"p"}, {"?"}} {
+		for _, keys := range [][]string{nil, {"tab", "tab"}, {"tab"}, {"enter"}, {"enter"}, {"?"}} {
 			s.keys(keys...)
 			lines := strings.Split(s.m.View().Content, "\n")
 			if len(lines) != size[1] {
@@ -613,7 +624,7 @@ func TestStatusPausesWhileCovered(t *testing.T) {
 		t.Fatalf("status calls = %d", f.statusCalls)
 	}
 	s.keys("enter") // open Leak A on top of the status
-	s.depth(3)
+	s.depth(2)
 	s.send(statusTickMsg{to: v.vid})
 	s.send(statusTickMsg{to: v.vid})
 	if f.statusCalls != 1 {

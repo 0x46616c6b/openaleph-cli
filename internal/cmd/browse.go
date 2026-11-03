@@ -41,8 +41,9 @@ func newBrowseCmd(app *App) *cobra.Command {
 			"terminal UI. Press ? inside the browser for all keys.\n\n" +
 			"  enter, l     open the selected row\n" +
 			"  esc, h       go back\n" +
-			"  tab          switch between datasets and investigations, or between the\n" +
-			"               entities and the documents (folders) of a collection\n" +
+			"  tab, ⇧tab    switch between datasets, investigations and the processing\n" +
+			"               status (refreshes every 3s), or between the entities and the\n" +
+			"               documents (folders) of a collection\n" +
 			"  d            download a document or folder\n" +
 			"               documents open on their content (email, table, PDF text);\n" +
 			"               tab shows their properties, / n N find text, < > scroll columns\n" +
@@ -53,7 +54,6 @@ func newBrowseCmd(app *App) *cobra.Command {
 			"  o            open in the web browser\n" +
 			"  J            show the raw JSON of an entity\n" +
 			"  f, F         filter entities by schema, clear the filter\n" +
-			"  p            show the processing status (refreshes every 3s)\n" +
 			"  a            collection actions: n new, e edit, D delete, i re-index, I re-ingest\n" +
 			"  ctrl+z       suspend to the shell (fg returns)\n" +
 			"  q            quit",
@@ -118,7 +118,7 @@ func newBrowseCmd(app *App) *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&collection, "collection", "c", "", "Start in this `collection` (ID or foreign ID)")
 	cmd.Flags().StringVarP(&search, "search", "s", "", "Start with an entity search for `text`")
-	cmd.Flags().BoolVar(&status, "status", false, "Start in the processing status")
+	cmd.Flags().BoolVar(&status, "status", false, "Start on the processing status tab")
 	cmd.Flags().StringVar(&debug, "debug", "", "Log all API requests and errors to `file`")
 	cmd.Flags().StringSliceVar(&schemas, "schema", nil, "Only entities of this `schema` (repeatable, or comma-separated)")
 	cmd.MarkFlagsMutuallyExclusive("collection", "status")

@@ -149,7 +149,7 @@ func TestCreateInvestigation(t *testing.T) {
 	if c := f.last(t); c.op != "update" || c.data["category"] != "casefile" {
 		t.Fatalf("update = %+v", c)
 	}
-	s.keys("tab")
+	s.keys("shift+tab")
 	s.contains("Leak A", "1 of 2 datasets")
 }
 

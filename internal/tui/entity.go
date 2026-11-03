@@ -76,7 +76,7 @@ func (v *entityView) footerHidden() map[string]bool {
 	hide := map[string]bool{"Y": true, "d": true}
 	if _, ok := v.content.(*emailPane); ok {
 		// Room for "A attach" and "T thread".
-		hide["n/N"], hide["p"] = true, true
+		hide["n/N"] = true
 	}
 	return hide
 }
