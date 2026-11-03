@@ -68,6 +68,9 @@ func (p *schemaPicker) init() tea.Cmd {
 	q.Query = p.list.query
 	return tea.Batch(p.input.Focus(), func() tea.Msg {
 		vals, err := b.SchemaCounts(ctx, q)
+		for i := range vals {
+			vals[i].ID, vals[i].Label = cleanText(vals[i].ID), cleanText(vals[i].Label)
+		}
 		return schemaCountsMsg{to: to, values: vals, err: err}
 	})
 }

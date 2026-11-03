@@ -287,3 +287,189 @@ func TestBrowseBackendDownload(t *testing.T) {
 		t.Fatalf("file = %q (%v), result = %+v, progress = %q", b, err, res, progress)
 	}
 }
+
+func TestBrowseBackendPagesAndCSV(t *testing.T) {
+	var pagesQuery url.Values
+	h := newHarness(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/2/entities":
+			pagesQuery = r.URL.Query()
+			reply(w, map[string]any{"total": 1, "results": []any{map[string]any{"schema": "Page"}}})
+		case "/archive/table.csv":
+			_, _ = w.Write([]byte("id,name\n1,\"Acme, Inc.\"\n2,Globex\n3,Initech\n"))
+		default:
+			t.Errorf("unexpected %s", r.URL)
+		}
+	})
+	c, err := api.New(api.Options{Host: h.srv.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := browseBackend{c}
+	if _, err := b.Pages(t.Context(), "doc1", 50); err != nil {
+		t.Fatal(err)
+	}
+	for k, want := range map[string]string{"filter:schema": "Page", "filter:properties.document": "doc1", "sort": "properties.index:asc", "offset": "50"} {
+		if got := pagesQuery.Get(k); got != want {
+			t.Errorf("pages %s = %q, want %q", k, got, want)
+		}
+	}
+	if pagesQuery.Has("filter:schemata") {
+		t.Errorf("pages query must not limit to Things: %v", pagesQuery)
+	}
+
+	rows, more, err := b.CSV(t.Context(), h.srv.URL+"/archive/table.csv", 2)
+	if err != nil || !more || len(rows) != 2 || rows[1][1] != "Acme, Inc." {
+		t.Fatalf("rows = %q, more = %v, err = %v", rows, more, err)
+	}
+	rows, more, err = b.CSV(t.Context(), h.srv.URL+"/archive/table.csv", 10)
+	if err != nil || more || len(rows) != 4 {
+		t.Fatalf("all rows = %q, more = %v, err = %v", rows, more, err)
+	}
+}
+
+func TestBrowseBackendAttachmentCounts(t *testing.T) {
+	var got url.Values
+	h := newHarness(t, func(w http.ResponseWriter, r *http.Request) {
+		got = r.URL.Query()
+		reply(w, map[string]any{"total": 3, "results": []any{}, "facets": map[string]any{
+			"properties.parent": map[string]any{"values": []any{map[string]any{"id": "e1", "count": 2}, map[string]any{"id": "e3", "count": 1},
+				// The parent of an attachment of an attachment.
+				map[string]any{"id": "a9", "count": 4}}},
+		}})
+	})
+	c, err := api.New(api.Options{Host: h.srv.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	counts, err := browseBackend{c}.AttachmentCounts(t.Context(), []string{"e1", "e2", "e3"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if counts["e1"] != 2 || counts["e3"] != 1 || counts["e2"] != 0 || len(counts) != 2 {
+		t.Fatalf("counts = %v", counts)
+	}
+	// Filtered by ancestors: a filter on the faceted field would not limit
+	// the facet in Aleph.
+	if strings.Join(got["filter:properties.ancestors"], ",") != "e1,e2,e3" || got.Has("filter:properties.parent") ||
+		got.Get("facet") != "properties.parent" || got.Get("facet_size:properties.parent") != "12" ||
+		got.Get("filter:schemata") != "Document" || got.Get("limit") != "0" {
+		t.Fatalf("query = %v", got)
+	}
+}
+
+func TestBrowseBackendThread(t *testing.T) {
+	m := func(id, date string, props map[string]any) map[string]any {
+		props["date"] = []any{date}
+		return map[string]any{"id": id, "schema": "Email", "properties": props}
+	}
+	// A reply chain without thread topic: e1 <- e2 <- e3, and e2 <- e4.
+	byMsgID := map[string]map[string]any{
+		"<1@x>": m("e1", "2016-01-01", map[string]any{"messageId": []any{"<1@x>"}}),
+		"<2@x>": m("e2", "2016-01-02", map[string]any{"messageId": []any{"<2@x>"}, "inReplyToEmail": []any{"<1@x>"}}),
+		"<3@x>": m("e3", "2016-01-03", map[string]any{"messageId": []any{"<3@x>"}, "inReplyToEmail": []any{"<2@x>"}}),
+		"<4@x>": m("e4", "2016-01-04", map[string]any{"messageId": []any{"<4@x>"}, "inReplyToEmail": []any{"<2@x>"}}),
+	}
+	var queries []url.Values
+	h := newHarness(t, func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		queries = append(queries, q)
+		var res []any
+		switch {
+		case q.Has("filter:properties.threadTopic"):
+			res = []any{m("t2", "2016-02-02", map[string]any{}), m("t1", "2016-02-01", map[string]any{})}
+		case q.Has("filter:properties.messageId"):
+			if e, ok := byMsgID[q.Get("filter:properties.messageId")]; ok {
+				res = []any{e}
+			}
+		case q.Has("filter:properties.inReplyToEmail"):
+			for _, e := range byMsgID {
+				p := e["properties"].(map[string]any)
+				if r, ok := p["inReplyToEmail"].([]any); ok && r[0] == q.Get("filter:properties.inReplyToEmail") {
+					res = append(res, e)
+				}
+			}
+		}
+		reply(w, map[string]any{"total": len(res), "results": res})
+	})
+	c, err := api.New(api.Options{Host: h.srv.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := browseBackend{c}
+	ids := func(es []api.Object) string {
+		var s []string
+		for _, e := range es {
+			s = append(s, api.ID(e))
+		}
+		return strings.Join(s, ",")
+	}
+
+	// From the middle of the chain the whole thread is found, oldest first.
+	e3 := byMsgID["<3@x>"]
+	e3["collection"] = map[string]any{"id": "12"}
+	thread, err := b.Thread(t.Context(), e3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := ids(thread); got != "e1,e2,e3,e4" {
+		t.Fatalf("thread = %s", got)
+	}
+	for _, q := range queries {
+		if q.Get("filter:collection_id") != "12" || q.Get("filter:schema") != "Email" {
+			t.Fatalf("thread query = %v", q)
+		}
+	}
+
+	// With a thread topic one query is enough.
+	queries = nil
+	thread, err = b.Thread(t.Context(), m("t1", "2016-02-01", map[string]any{"threadTopic": []any{"Offer"}}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := ids(thread); got != "t1,t2" || len(queries) != 1 || queries[0].Get("filter:properties.threadTopic") != "Offer" {
+		t.Fatalf("thread = %s, queries = %v", got, queries)
+	}
+}
+
+func TestAttachmentCountsStayWithinRequestLineLimit(t *testing.T) {
+	var lines []int
+	var seen []string
+	h := newHarness(t, func(w http.ResponseWriter, r *http.Request) {
+		// gunicorn rejects request lines over 4094 bytes.
+		line := len(r.Method) + 1 + len(r.URL.RequestURI()) + len(" HTTP/1.1")
+		lines = append(lines, line)
+		if line > 4094 {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		ids := r.URL.Query()["filter:properties.ancestors"]
+		seen = append(seen, ids...)
+		var vals []any
+		for _, id := range ids {
+			vals = append(vals, map[string]any{"id": id, "count": 1})
+		}
+		reply(w, map[string]any{"total": len(ids), "results": []any{}, "facets": map[string]any{"properties.parent": map[string]any{"values": vals}}})
+	})
+	c, err := api.New(api.Options{Host: h.srv.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 50 IDs as long as real ones (a hash and a collection signature).
+	var ids []string
+	for i := range 50 {
+		ids = append(ids, fmt.Sprintf("%040x.%040x", i, i))
+	}
+	counts, err := browseBackend{c}.AttachmentCounts(t.Context(), ids)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(counts) != 50 || len(seen) != 50 || len(lines) < 2 {
+		t.Fatalf("counts = %d, ids sent = %d, requests = %d", len(counts), len(seen), len(lines))
+	}
+	for _, l := range lines {
+		if l > 4094 {
+			t.Fatalf("request line of %d bytes", l)
+		}
+	}
+}

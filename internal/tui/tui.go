@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"slices"
 	"time"
 
 	"charm.land/bubbles/v2/help"
@@ -165,24 +166,25 @@ func statusErr(err error) tea.Cmd {
 }
 
 type globalKeys struct {
-	Back, Switch, Status, Help, Quit key.Binding
+	Back, Switch, SwitchBack, Help, Quit key.Binding
 }
 
 var global = globalKeys{
-	Back:   key.NewBinding(key.WithKeys("esc", "backspace", "h", "left"), key.WithHelp("esc/h", "back")),
-	Switch: key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "switch")),
-	Status: key.NewBinding(key.WithKeys("p"), key.WithHelp("p", "status")),
-	Help:   key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
-	Quit:   key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
+	Back:       key.NewBinding(key.WithKeys("esc", "backspace", "h", "left"), key.WithHelp("esc/h", "back")),
+	Switch:     key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "switch")),
+	SwitchBack: key.NewBinding(key.WithKeys("shift+tab"), key.WithHelp("⇧tab", "switch back")),
+	Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
+	Quit:       key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
 }
 
 type model struct {
 	env *env
-	// roots are the datasets and the investigations list. The active one is
-	// at the bottom of the stack; tab switches on the first screen.
-	roots    [2]*listView
+	// roots are the tabs of the first screen: datasets, investigations and
+	// the processing status. The active one is at the bottom of the stack;
+	// tab switches on the first screen.
+	roots    []view
 	root     int
-	started  [2]bool
+	started  []bool
 	host     string
 	stack    []view
 	width    int
@@ -201,9 +203,13 @@ func newModel(ctx context.Context, o Options) model {
 	e.theme = newTheme()
 	m := model{env: e, host: o.Host, help: help.New()}
 	m.help.Styles = e.theme.help
-	m.roots = [2]*listView{newCollectionsView(e, false), newCollectionsView(e, true)}
-	if o.Collection != nil && isInvestigation(o.Collection) {
-		m.root = 1
+	m.roots = []view{newCollectionsView(e, false), newCollectionsView(e, true), newStatusView(e)}
+	m.started = make([]bool, len(m.roots))
+	switch {
+	case o.Collection != nil && isInvestigation(o.Collection):
+		m.root = rootInvestigations
+	case o.Collection == nil && o.Query == "" && len(o.Schemas) == 0 && o.Status:
+		m.root = rootStatus
 	}
 	m.started[m.root] = true
 	m.stack = []view{m.roots[m.root]}
@@ -212,8 +218,6 @@ func newModel(ctx context.Context, o Options) model {
 		m.stack = append(m.stack, newEntitiesView(e, o.Collection, o.Query, o.Schemas))
 	case o.Query != "" || len(o.Schemas) > 0:
 		m.stack = append(m.stack, newEntitiesView(e, nil, o.Query, o.Schemas))
-	case o.Status:
-		m.stack = append(m.stack, newStatusView(e))
 	}
 	return m
 }
@@ -237,6 +241,36 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // resumer is a view that wants to know when it is shown again after the
 // view above it was closed.
 type resumer interface{ resumed() tea.Cmd }
+
+const (
+	rootDatasets = iota
+	rootInvestigations
+	rootStatus
+)
+
+// switchRoot shows the next (or previous) tab of the first screen. A tab is
+// loaded on first use; the status refreshes when shown again.
+func (m *model) switchRoot(step int) tea.Cmd {
+	m.root = (m.root + step + len(m.roots)) % len(m.roots)
+	m.stack[0] = m.roots[m.root]
+	m.layout()
+	if !m.started[m.root] {
+		m.started[m.root] = true
+		return m.roots[m.root].init()
+	}
+	if r, ok := m.roots[m.root].(resumer); ok {
+		return r.resumed()
+	}
+	return nil
+}
+
+// rootName is the name of a tab without the search in it.
+func rootName(v view) string {
+	if l, ok := v.(*listView); ok {
+		return l.name
+	}
+	return v.title()
+}
 
 // popTop closes the top view and tells the view below.
 func (m *model) popTop() tea.Cmd {
@@ -273,19 +307,9 @@ func (m model) update(msg tea.Msg) (model, tea.Cmd) {
 				m.layout()
 				return m, nil
 			case len(m.stack) == 1 && key.Matches(msg, global.Switch):
-				m.root = 1 - m.root
-				m.stack[0] = m.roots[m.root]
-				m.layout()
-				if !m.started[m.root] {
-					m.started[m.root] = true
-					return m, m.roots[m.root].init()
-				}
-				return m, nil
-			case key.Matches(msg, global.Status):
-				if _, ok := m.top().(*statusView); !ok {
-					return m, push(newStatusView(m.env))
-				}
-				return m, nil
+				return m, m.switchRoot(1)
+			case len(m.stack) == 1 && key.Matches(msg, global.SwitchBack):
+				return m, m.switchRoot(-1)
 			case key.Matches(msg, global.Back):
 				if len(m.stack) > 1 {
 					return m, m.popTop()
@@ -312,6 +336,7 @@ func (m model) update(msg tea.Msg) (model, tea.Cmd) {
 		return m, nil
 	case downloadMsg:
 		m.status, m.isErr = msg.status()
+		m.status = cleanText(m.status)
 		if msg.done {
 			return m, nil
 		}
@@ -321,10 +346,13 @@ func (m model) update(msg tea.Msg) (model, tea.Cmd) {
 		m.layout()
 		return m, msg.v.init()
 	case statusMsg:
-		m.status, m.isErr = msg.text, msg.err
+		// Errors can quote server responses.
+		m.status, m.isErr = cleanText(msg.text), msg.err
 		return m, nil
 	case targeted:
-		for _, v := range m.stack {
+		// The other tabs of the first screen are off the stack but still
+		// get their results and ticks.
+		for _, v := range slices.Concat(m.stack[1:], m.roots) {
 			if v.id() == msg.target() {
 				return m, v.update(msg)
 			}
@@ -356,7 +384,10 @@ func (m model) header() string {
 	tabs := []string{m.roots[m.root].title()} // with the query, if any
 	active := 0
 	if len(m.stack) == 1 {
-		tabs = []string{m.roots[0].name, m.roots[1].name}
+		tabs = make([]string, len(m.roots))
+		for i, r := range m.roots {
+			tabs[i] = rootName(r)
+		}
 		tabs[m.root], active = m.roots[m.root].title(), m.root
 	}
 	crumbs := make([]string, 0, len(m.stack)-1)
@@ -411,16 +442,13 @@ func (m model) ShortHelp() []key.Binding {
 	}
 	var ks []key.Binding
 	var hide map[string]bool
-	if l, ok := m.top().(*listView); ok {
-		hide = l.footerHide
+	if h, ok := m.top().(interface{ footerHidden() map[string]bool }); ok {
+		hide = h.footerHidden()
 	}
 	for _, k := range m.top().keys() {
 		if !secondaryKeys[k.Help().Key] && !hide[k.Help().Key] {
 			ks = append(ks, k)
 		}
-	}
-	if _, ok := m.top().(*statusView); !ok {
-		ks = append(ks, global.Status)
 	}
 	if len(m.stack) > 1 {
 		ks = append(ks, global.Back)
@@ -436,6 +464,6 @@ func (m model) FullHelp() [][]key.Binding {
 		m.top().keys(),
 		{navKeys.LineUp, navKeys.LineDown, navKeys.GotoTop, navKeys.GotoBottom},
 		{navKeys.PageUp, navKeys.PageDown, navKeys.HalfPageUp, navKeys.HalfPageDown},
-		{global.Back, global.Switch, global.Status, global.Help, global.Quit},
+		{global.Back, global.Switch, global.SwitchBack, global.Help, global.Quit},
 	}
 }

@@ -88,6 +88,9 @@ func newDocumentsView(e *env, collection, folder api.Object) *listView {
 	base := EntityQuery{CollectionID: str(collection, "id"), TopLevel: true}
 	if folder != nil {
 		name = docName(folder)
+		if s := str(folder, "schema"); s == "Email" || s == "Message" {
+			name = "Attachments"
+		}
 		base = EntityQuery{Parent: str(folder, "id")}
 	}
 	l := newListView(e, name, "documents", "")

@@ -135,16 +135,17 @@ oa api collections -f limit=5 --jq '.results[].label'
 ### Interactive browser
 
 `oa browse` opens a full-screen browser for collections and entities. Like the web UI, it lists datasets and
-investigations (collections of the category `casefile`) separately; `tab` switches between them. Start it with
+investigations (collections of the category `casefile`) separately, next to the processing status of all collections,
+refreshed every 3 seconds; `tab` and `shift-tab` switch between these three tabs. Start it with
 `--collection leak_a` to go
 straight to a collection, with `--search "acme"` to start with an entity search (both together search in the
-collection), `--schema Person,Address` to filter by schema, or with `--status` to start in the processing status. Rows load page by page as you scroll.
+collection), `--schema Person,Address` to filter by schema, or with `--status` to start on the status tab. Rows load page by page as you scroll.
 
 | Key | Action |
 | --- | --- |
 | `enter`, `l` | Open the selected collection, entity, linked entity or value |
 | `esc`, `h` | Go back |
-| `tab` | Switch between datasets and investigations; in a collection, between its entities and its documents |
+| `tab`, `shift-tab` | Switch between datasets, investigations and status; in a collection, between its entities and its documents |
 | `/` | Search the current list (`enter` runs it, `esc` cancels) |
 | `s` | Search entities in all collections |
 | `j`/`k`, `g`/`G`, `ctrl-d`/`ctrl-u` | Move, jump to top or bottom, half page |
@@ -154,7 +155,6 @@ collection), `--schema Person,Address` to filter by schema, or with `--status` t
 | `d` | Download a document, or a folder with everything in it, in the background |
 | `f` | Filter an entity list by schema: type to narrow, `space` selects several, `enter` applies |
 | `F` | Clear the schema filter |
-| `p` | Show the processing status, refreshed every 3 seconds |
 | `a` | Menu with the collection actions below (in the datasets and investigations lists) |
 | `n` | Create a dataset or an investigation, depending on the list |
 | `e` | Edit the selected collection |
@@ -165,6 +165,19 @@ collection), `--schema Person,Address` to filter by schema, or with `--status` t
 | `?` | Show all keys |
 | `ctrl-z` | Suspend to the shell (`fg` returns) |
 | `q` | Quit |
+
+Documents open on their content, and `tab` switches to their properties:
+
+- emails show their headers (from, date, subject, to, cc), their attachments and the body; `A` opens the attachments
+  and `T` the thread (by the thread topic, or else by following the replies), oldest first,
+- tables show their rows (the first 1,000), with `<` and `>` to scroll through wide tables,
+- PDFs show their text page by page, loading more pages as you scroll,
+- text and HTML documents show their text.
+
+Lists that contain emails get an ATT column with the number of attachments (one extra request per page).
+
+In the content, `/` finds text, `n` and `N` jump between the hits, and `Y` copies the text. Text from documents is
+shown without terminal control characters, so a document cannot change the title or the clipboard of your terminal.
 
 In the documents of a collection, `enter` opens folders, and documents such as emails list their attachments under
 "contents". A search (`/`) in a folder covers all folders below it.

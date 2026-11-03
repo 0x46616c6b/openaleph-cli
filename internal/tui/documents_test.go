@@ -101,6 +101,9 @@ func TestDocumentsTabAndFolders(t *testing.T) {
 	}
 	s.keys("enter", "enter")
 	s.depth(4)
+	// Emails open on their content; tab shows the properties.
+	s.contains("Content", "Properties", "(no text)")
+	s.keys("tab")
 	s.contains("mail.eml", "contents", "files and attachments in it ›")
 	s.keys("j", "j", "j", "enter")
 	s.depth(5)
@@ -209,9 +212,9 @@ func TestListFootersFit80(t *testing.T) {
 			}
 		}
 	}
-	check("entities", "tab documents", "f schema", "p status")
+	check("entities", "tab documents", "f schema")
 	s.keys("tab")
-	check("documents", "tab entities", "d download", "p status")
+	check("documents", "tab entities", "d download")
 	s.keys("enter")
 	check("document", "d download")
 }

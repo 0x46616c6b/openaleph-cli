@@ -101,7 +101,7 @@ func (c *confirmView) update(msg tea.Msg) tea.Cmd {
 	case dialogDoneMsg:
 		c.busy = false
 		if msg.err != nil {
-			c.err = msg.err.Error()
+			c.err = cleanText(msg.err.Error())
 			return nil
 		}
 		return tea.Batch(pop(c.vid), c.done())

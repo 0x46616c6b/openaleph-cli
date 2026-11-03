@@ -7,7 +7,6 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/table"
-	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/0x46616c6b/openaleph-cli/internal/api"
@@ -37,7 +36,18 @@ type entityView struct {
 	table   table.Model
 	loading bool
 	width   int
+	height  int
+	// content shows the document itself (text, email, table); tab switches
+	// between it and the properties. It is built once the full entity is
+	// loaded.
+	content     pane
+	showContent bool
 }
+
+var (
+	keyToContent = key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "content"))
+	keyToProps   = key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "properties"))
+)
 
 // newEntityView shows e right away (search results carry the properties) and
 // loads the full entity in the background.
@@ -57,12 +67,33 @@ func (v *entityView) title() string {
 	return str(v.entity, "id")
 }
 
-func (v *entityView) capturing() bool { return false }
+// footerHidden keeps the footer of the content within 80 columns; ? lists
+// the hidden keys.
+func (v *entityView) footerHidden() map[string]bool {
+	if !v.showContent {
+		return nil
+	}
+	hide := map[string]bool{"Y": true, "d": true}
+	if _, ok := v.content.(*emailPane); ok {
+		// Room for "A attach" and "T thread".
+		hide["n/N"] = true
+	}
+	return hide
+}
+
+func (v *entityView) capturing() bool { return v.showContent && v.content.capturing() }
 
 func (v *entityView) keys() []key.Binding {
+	if v.showContent {
+		ks := append([]key.Binding{keyToProps}, v.content.keys()...)
+		return append(ks, keyDownload, keyYank, keyWeb, keyJSON, keyReload)
+	}
 	ks := []key.Binding{keyOpen, keyYank, keyWeb, keyJSON, keyReload}
 	if isDocument(v.entity) {
 		ks = append([]key.Binding{keyOpen, keyDownload}, ks[1:]...)
+	}
+	if v.content != nil {
+		ks = append([]key.Binding{keyToContent}, ks...)
 	}
 	return ks
 }
@@ -74,6 +105,9 @@ func (v *entityView) load() tea.Cmd {
 	ctx, b, id, to := v.env.ctx, v.env.backend, str(v.entity, "id"), v.vid
 	return func() tea.Msg {
 		e, err := b.Entity(ctx, id)
+		if e != nil {
+			cleanValue(e)
+		}
 		return entityMsg{to: to, entity: e, err: err}
 	}
 }
@@ -152,9 +186,44 @@ func (v *entityView) update(msg tea.Msg) tea.Cmd {
 		cursor := v.table.Cursor()
 		v.setEntity(msg.entity)
 		v.table.SetCursor(min(cursor, max(len(v.fields)-1, 0)))
-		return nil
+		// Documents open on their content, once it is known what to show.
+		first := v.content == nil
+		v.content = newContentPane(v.env, v.vid, msg.entity)
+		if v.content == nil {
+			v.showContent = false
+			return nil
+		}
+		if first {
+			v.showContent = true
+		}
+		v.resize(v.width, v.height)
+		return v.content.init()
 	case tea.KeyPressMsg:
+		if v.showContent {
+			if v.content.capturing() {
+				return v.content.update(msg)
+			}
+			switch {
+			case key.Matches(msg, keyToProps):
+				v.showContent = false
+				return nil
+			case key.Matches(msg, keyDownload):
+				return downloadDialog(v.env, v.entity)
+			case key.Matches(msg, keyYank):
+				return copyID(v.entity)
+			case key.Matches(msg, keyWeb):
+				return openURL(v.env, v.entity)
+			case key.Matches(msg, keyJSON):
+				return v.showJSON()
+			case key.Matches(msg, keyReload):
+				return v.load()
+			}
+			return v.content.update(msg)
+		}
 		switch {
+		case v.content != nil && key.Matches(msg, keyToContent):
+			v.showContent = true
+			return nil
 		case key.Matches(msg, keyOpen):
 			c := v.table.Cursor()
 			if c < 0 || c >= len(v.fields) {
@@ -170,11 +239,7 @@ func (v *entityView) update(msg tea.Msg) tea.Cmd {
 		case key.Matches(msg, keyWeb):
 			return openURL(v.env, v.entity)
 		case key.Matches(msg, keyJSON):
-			b, err := json.MarshalIndent(v.entity, "", "  ")
-			if err != nil {
-				return statusErr(err)
-			}
-			return push(newTextView(v.env, "JSON", string(b)))
+			return v.showJSON()
 		case key.Matches(msg, keyReload):
 			return v.load()
 		case key.Matches(msg, keyDownload):
@@ -184,11 +249,40 @@ func (v *entityView) update(msg tea.Msg) tea.Cmd {
 		v.table, cmd = v.table.Update(msg)
 		return cmd
 	}
+	// Loaded pages, table rows and cursor blinks are for the content.
+	if v.content != nil {
+		return v.content.update(msg)
+	}
 	return nil
 }
 
+func (v *entityView) showJSON() tea.Cmd {
+	b, err := json.MarshalIndent(v.entity, "", "  ")
+	if err != nil {
+		return statusErr(err)
+	}
+	return push(newTextView(v.env, "JSON", string(b)))
+}
+
+// tabs is the line above documents that shows which tab is active.
+func (v *entityView) tabs() string {
+	t := v.env.theme
+	content, props := t.tab.Render("Content"), t.tab.Render("Properties")
+	if v.showContent {
+		content = t.activeTab.Render("Content")
+	} else {
+		props = t.activeTab.Render("Properties")
+	}
+	return content + " " + props + t.dim.Render("  tab switches")
+}
+
 func (v *entityView) resize(width, height int) {
-	v.width = width
+	v.width, v.height = width, height
+	if v.content != nil {
+		// The tabs take one line.
+		height--
+		v.content.resize(width, max(height, 1))
+	}
 	// Columns and styles first: SetHeight subtracts the height of the
 	// column titles.
 	v.layout()
@@ -210,31 +304,30 @@ func (v *entityView) layout() {
 }
 
 func (v *entityView) render() string {
+	if v.showContent {
+		return v.tabs() + "\n" + v.content.render()
+	}
 	info := fmt.Sprintf("%s · %d values", str(v.entity, "schema"), len(v.fields))
 	if v.loading {
 		info += " · loading…"
 	}
-	return v.table.View() + "\n" + v.env.theme.dim.Render(truncate(" "+info, v.width))
+	body := v.table.View() + "\n" + v.env.theme.dim.Render(truncate(" "+info, v.width))
+	if v.content != nil {
+		return v.tabs() + "\n" + body
+	}
+	return body
 }
 
-// textView pages through a long value or the raw JSON of an entity.
+// textView pages through a long value or the raw JSON of an entity, with
+// the same search as the content of documents.
 type textView struct {
-	env  *env
 	vid  int
 	name string
-	text string
-	vp   viewport.Model
+	pane *textPane
 }
 
 func newTextView(e *env, name, text string) *textView {
-	vp := viewport.New()
-	vp.SoftWrap = true
-	vp.KeyMap.PageDown = navKeys.PageDown
-	vp.KeyMap.PageUp = navKeys.PageUp
-	vp.KeyMap.HalfPageDown = navKeys.HalfPageDown
-	vp.KeyMap.HalfPageUp = navKeys.HalfPageUp
-	vp.SetContent(text)
-	return &textView{env: e, vid: e.nextID(), name: name, text: text, vp: vp}
+	return &textView{vid: e.nextID(), name: name, pane: newTextPane(e, cleanText(text))}
 }
 
 var keyCopyText = key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "copy text"))
@@ -242,27 +335,16 @@ var keyCopyText = key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "copy text
 func (v *textView) id() int             { return v.vid }
 func (v *textView) title() string       { return v.name }
 func (v *textView) init() tea.Cmd       { return nil }
-func (v *textView) capturing() bool     { return false }
-func (v *textView) keys() []key.Binding { return []key.Binding{keyCopyText} }
-func (v *textView) resize(width, h int) { v.vp.SetWidth(width); v.vp.SetHeight(max(h-1, 1)) }
-func (v *textView) render() string      { return v.vp.View() + "\n" + v.info() }
-func (v *textView) info() string {
-	return v.env.theme.dim.Render(fmt.Sprintf(" %3.0f%%", v.vp.ScrollPercent()*100))
+func (v *textView) capturing() bool     { return v.pane.capturing() }
+func (v *textView) resize(width, h int) { v.pane.resize(width, h) }
+func (v *textView) render() string      { return v.pane.render() }
+func (v *textView) keys() []key.Binding {
+	return []key.Binding{keyCopyText, keyFind, keyNextHit}
 }
+
 func (v *textView) update(msg tea.Msg) tea.Cmd {
-	if k, ok := msg.(tea.KeyPressMsg); ok {
-		switch {
-		case key.Matches(k, keyCopyText):
-			return copyText(v.text, "Copied "+v.name)
-		case key.Matches(k, navKeys.GotoTop):
-			v.vp.GotoTop()
-			return nil
-		case key.Matches(k, navKeys.GotoBottom):
-			v.vp.GotoBottom()
-			return nil
-		}
+	if k, ok := msg.(tea.KeyPressMsg); ok && !v.pane.capturing() && key.Matches(k, keyCopyText) {
+		return copyText(v.pane.text, "Copied "+v.name)
 	}
-	var cmd tea.Cmd
-	v.vp, cmd = v.vp.Update(msg)
-	return cmd
+	return v.pane.update(msg)
 }
