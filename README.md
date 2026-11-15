@@ -111,6 +111,8 @@ Collections are referenced by numeric ID or foreign ID.
 | `oa collection download <collection>` | Rebuild a collection as a folder tree |
 | `oa collection access list / grant / revoke` | Show and change which users and groups can read or write a collection |
 | `oa search <query>` | Search entities |
+| `oa export search <query>` | Export search results as a zip archive on the server (same filters as `oa search`) |
+| `oa export list / download <id>` | List your exports and download a finished one (`--overwrite` replaces an existing file) |
 | `oa browse` | Browse collections and entities in an interactive terminal UI |
 | `oa entity view / delete / download` | Work with single entities |
 | `oa entity stream / write / write-many` | Export and import entities as JSON lines |

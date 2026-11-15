@@ -38,6 +38,7 @@ func NewRootCmd(app *App) *cobra.Command {
 		newStatusCmd(app),
 		newCollectionCmd(app),
 		newSearchCmd(app),
+		newExportCmd(app),
 		newBrowseCmd(app),
 		newEntityCmd(app),
 		newEntitySetCmd(app),
