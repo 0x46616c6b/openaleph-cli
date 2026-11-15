@@ -113,6 +113,8 @@ Collections are referenced by numeric ID or foreign ID.
 | `oa search <query>` | Search entities |
 | `oa browse` | Browse collections and entities in an interactive terminal UI |
 | `oa entity view / delete / download` | Work with single entities |
+| `oa entity reingest <id>...` | Re-ingest single documents |
+| `oa entity analyze / transcribe / translate <id>...` | Analyze, transcribe or translate single documents (OpenAleph only) |
 | `oa entity stream / write / write-many` | Export and import entities as JSON lines |
 | `oa entity map <mapping.yml>` | Create entities from CSV files with an `ftm map` mapping, printed as JSON lines |
 | `oa entityset list / items / create / delete` | Work with lists and other entity sets |
