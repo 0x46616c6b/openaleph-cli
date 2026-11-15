@@ -109,6 +109,7 @@ Collections are referenced by numeric ID or foreign ID.
 | `oa collection reindex / reingest` | Re-run indexing or ingest |
 | `oa collection upload <collection> <path>` | Upload a directory, resumable, parallel |
 | `oa collection download <collection>` | Rebuild a collection as a folder tree |
+| `oa collection access list / grant / revoke` | Show and change which users and groups can read or write a collection |
 | `oa search <query>` | Search entities |
 | `oa browse` | Browse collections and entities in an interactive terminal UI |
 | `oa entity view / delete / download` | Work with single entities |
