@@ -286,3 +286,106 @@ func TestStatePathUsesRootWhenWritable(t *testing.T) {
 		t.Fatalf("the write probe must clean up after itself: %v", entries)
 	}
 }
+
+func TestRunIncludeSkipsOtherFilesAndEmptyFolders(t *testing.T) {
+	root := t.TempDir()
+	writeFiles(t, root, map[string]string{
+		"a.pdf":            "a",
+		"a.txt":            "a",
+		"docs/b.PDF":       "b",
+		"docs/deep/c.pdf":  "c",
+		"notes/n.txt":      "n",
+		"skip/d.pdf":       "d",
+		".openalephignore": "skip/\n",
+	})
+	f := &fakeAleph{}
+	res, err := Run(context.Background(), newCrawlClient(t, f), coll, Options{Root: root, Parallel: 2, Include: []string{"*.pdf"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"dir docs <- ",
+		"dir docs/deep <- dir:docs",
+		"file a.pdf <- ",
+		"file docs/deep/c.pdf <- dir:docs/deep",
+	}
+	if got := f.summary(); strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("calls:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	if res.Uploaded != 2 || res.Failed != 0 {
+		t.Fatalf("result = %+v", res)
+	}
+}
+
+func TestRunIncludeFailedFolderKeepsFilesPending(t *testing.T) {
+	root := t.TempDir()
+	writeFiles(t, root, map[string]string{
+		"sub/a.pdf":      "a",
+		"sub/deep/b.pdf": "b",
+		"ok/c.pdf":       "c",
+	})
+	f := &fakeAleph{failOn: map[string]bool{"sub": true}}
+	c := newCrawlClient(t, f)
+	res, err := Run(context.Background(), c, coll, Options{Root: root, Include: []string{"*.pdf"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Uploaded != 1 || res.Failed != 1 {
+		t.Fatalf("result = %+v", res)
+	}
+	f.mu.Lock()
+	f.failOn = nil
+	f.mu.Unlock()
+	if res, err = Run(context.Background(), c, coll, Options{Root: root, Resume: true, Include: []string{"*.pdf"}}); err != nil {
+		t.Fatal(err)
+	}
+	if res.Uploaded != 3 {
+		t.Fatalf("after resume all files must be uploaded: %+v", res)
+	}
+}
+
+func TestRunIncludeSingleFile(t *testing.T) {
+	root := t.TempDir()
+	writeFiles(t, root, map[string]string{"notes.txt": "x"})
+	f := &fakeAleph{}
+	_, err := Run(context.Background(), newCrawlClient(t, f), coll, Options{Root: filepath.Join(root, "notes.txt"), Include: []string{"*.pdf"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := f.summary(); len(got) != 0 {
+		t.Fatalf("calls = %v", got)
+	}
+}
+
+func TestIncluder(t *testing.T) {
+	if _, err := NewIncluder(""); err == nil {
+		t.Fatal("empty pattern must be rejected")
+	}
+	all, err := NewIncluder()
+	if err != nil || all.Filtering() || !all.Included("any/file.bin") {
+		t.Fatalf("no patterns must include everything: %v", err)
+	}
+	in, err := NewIncluder("*.pdf", "report-??.docx", "2024/*.xlsx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		rel  string
+		want bool
+	}{
+		{"a.pdf", true},
+		{"x/y/a.pdf", true},
+		{"a.pdf.txt", false},
+		{"a.PDF", false},
+		{"report-01.docx", true},
+		{"sub/report-01.docx", true}, // matches the file name
+		{"report-001.docx", false},
+		{"2024/q1.xlsx", true},
+		{"2023/q1.xlsx", false},
+	}
+	for _, c := range cases {
+		if got := in.Included(c.rel); got != c.want {
+			t.Errorf("Included(%q) = %v, want %v", c.rel, got, c.want)
+		}
+	}
+}

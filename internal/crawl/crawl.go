@@ -27,6 +27,9 @@ type Options struct {
 	Resume bool
 	// StateFile overrides the default state file location.
 	StateFile string
+	// Include limits the upload to files matching at least one of these
+	// fnmatch patterns (see Includer). Empty means all files.
+	Include []string
 	// Log receives progress messages; level is "INFO", "WARNING" or "ERROR".
 	Log func(level, msg string)
 }
@@ -43,12 +46,13 @@ type job struct {
 }
 
 type crawler struct {
-	c      *api.Client
-	collID string
-	o      Options
-	state  *State
-	ignore *Ignorer
-	root   string
+	c       *api.Client
+	collID  string
+	o       Options
+	state   *State
+	ignore  *Ignorer
+	include *Includer
+	root    string
 }
 
 func (cr *crawler) logf(level, format string, args ...any) {
@@ -77,6 +81,10 @@ func Run(ctx context.Context, c *api.Client, collection api.Object, o Options) (
 	if o.Parallel < 1 {
 		o.Parallel = 1
 	}
+	include, err := NewIncluder(o.Include...)
+	if err != nil {
+		return res, err
+	}
 
 	baseDir := root
 	if !info.IsDir() {
@@ -96,7 +104,7 @@ func Run(ctx context.Context, c *api.Client, collection api.Object, o Options) (
 	defer func() { _ = state.Close() }()
 	res.StateFile = statePath
 
-	cr := &crawler{c: c, collID: api.ID(collection), o: o, state: state, root: root}
+	cr := &crawler{c: c, collID: api.ID(collection), o: o, state: state, include: include, root: root}
 	if cr.collID == "" {
 		return res, errors.New("collection has no id")
 	}
@@ -129,11 +137,13 @@ func Run(ctx context.Context, c *api.Client, collection api.Object, o Options) (
 
 	if info.IsDir() {
 		cr.scan(ctx, jobs)
-	} else {
+	} else if rel := filepath.Base(root); cr.include.Included(rel) {
 		select {
-		case jobs <- job{path: root, rel: filepath.Base(root)}:
+		case jobs <- job{path: root, rel: rel}:
 		case <-ctx.Done():
 		}
+	} else {
+		cr.logf("WARNING", "Skipping %s: does not match --include", rel)
 	}
 	close(jobs)
 	wg.Wait()
@@ -167,28 +177,61 @@ func Run(ctx context.Context, c *api.Client, collection api.Object, o Options) (
 	return res, nil
 }
 
+// folder is a directory found by scan. Its entity is created by ensure.
+type folder struct {
+	path, rel string
+	parent    *folder
+	id        string
+	failed    bool
+}
+
+// ensure creates the folder entity and, first, those of its ancestors, and
+// returns its ID. The root has no entity and returns "". A folder that failed
+// once is not retried in this session; its contents stay pending for --resume.
+func (cr *crawler) ensure(ctx context.Context, d *folder) (string, bool) {
+	if d.rel == "" || d.id != "" {
+		return d.id, true
+	}
+	if d.failed {
+		return "", false
+	}
+	parentID, ok := cr.ensure(ctx, d.parent)
+	if !ok {
+		d.failed = true
+		return "", false
+	}
+	id, err := cr.ingest(ctx, d.path, d.rel, parentID)
+	if err != nil {
+		d.failed = true
+		if ctx.Err() == nil {
+			cr.logf("ERROR", "Failed to create folder %s: %v", d.rel, err)
+			_ = cr.state.MarkFailed(d.rel + "/")
+		}
+		return "", false
+	}
+	d.id = id
+	return id, true
+}
+
 // scan walks the tree breadth-first. Folder entities are created here,
 // synchronously, because their IDs are the parents of the files below.
+// Without include patterns every folder is created when it is reached; with
+// them, only once a matching file below it needs a parent, so the collection
+// gets no empty folders.
 func (cr *crawler) scan(ctx context.Context, jobs chan<- job) {
-	type dir struct{ path, rel, parentID string }
-	queue := []dir{{path: cr.root}}
+	queue := []*folder{{path: cr.root}}
 	visited := map[string]bool{cr.root: true}
 
 	for len(queue) > 0 && ctx.Err() == nil {
 		d := queue[0]
 		queue = queue[1:]
 
-		parentID := d.parentID
-		if d.rel != "" {
-			id, err := cr.ingest(ctx, d.path, d.rel, parentID)
-			if err != nil {
-				if ctx.Err() == nil {
-					cr.logf("ERROR", "Failed to create folder %s: %v", d.rel, err)
-					_ = cr.state.MarkFailed(d.rel + "/")
-				}
+		if !cr.include.Filtering() {
+			if _, ok := cr.ensure(ctx, d); !ok {
 				continue // children would lose their parent, retry on resume
 			}
-			parentID = id
+		} else if d.failed {
+			continue
 		}
 
 		entries, err := os.ReadDir(d.path)
@@ -215,8 +258,15 @@ func (cr *crawler) scan(ctx context.Context, jobs chan<- job) {
 					continue
 				}
 				visited[real] = true
-				queue = append(queue, dir{path: child, rel: rel, parentID: parentID})
+				queue = append(queue, &folder{path: child, rel: rel, parent: d})
 			case info.Mode().IsRegular():
+				if !cr.include.Included(rel) {
+					continue
+				}
+				parentID, ok := cr.ensure(ctx, d)
+				if !ok {
+					break // the folder failed, the file stays pending for --resume
+				}
 				select {
 				case jobs <- job{path: child, rel: rel, parentID: parentID}:
 				case <-ctx.Done():
