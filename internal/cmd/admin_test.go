@@ -47,6 +47,7 @@ func TestDestructiveCommandsNeedConfirmation(t *testing.T) {
 	for _, args := range [][]string{
 		{"collection", "delete", "leak_a"},
 		{"collection", "flush", "leak_a"},
+		{"status", "cancel", "leak_a"},
 		{"entity", "delete", "e1"},
 		{"entityset", "delete", "es1"},
 	} {
