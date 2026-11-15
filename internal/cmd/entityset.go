@@ -16,6 +16,7 @@ func newEntitySetCmd(app *App) *cobra.Command {
 		Short:   "Work with entity sets (lists, diagrams, timelines)",
 	}
 	cmd.AddCommand(newEntitySetListCmd(app), newEntitySetItemsCmd(app), newEntitySetCreateCmd(app), newEntitySetDeleteCmd(app))
+	cmd.AddCommand(newEntitySetViewCmd(app), newEntitySetEditCmd(app), newEntitySetAddCmd(app), newEntitySetRemoveCmd(app), newEntitySetWriteCmd(app))
 	return cmd
 }
 
