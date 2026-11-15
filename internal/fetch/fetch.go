@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -176,7 +177,7 @@ func (f *fetcher) file(ctx context.Context, dir, name, fileURL string) error {
 		return nil
 	}
 	f.logf("Fetch [%s]: %s", dir, name)
-	err := f.c.Retry(ctx, func() error { return f.download(ctx, fileURL, dir, target) })
+	err := f.c.Retry(ctx, func() error { return download(ctx, f.c, fileURL, dir, target, true) })
 	if err == nil {
 		f.res.Fetched++
 		f.progress(name)
@@ -191,9 +192,10 @@ func (f *fetcher) progress(name string) {
 }
 
 // download streams to a temporary file next to target and moves it into
-// place when complete.
-func (f *fetcher) download(ctx context.Context, fileURL, dir, target string) error {
-	resp, err := f.c.Do(ctx, "GET", fileURL, nil, nil)
+// place when complete. Without overwrite it fails if target appeared in the
+// meantime.
+func download(ctx context.Context, c *api.Client, fileURL, dir, target string, overwrite bool) error {
+	resp, err := c.Do(ctx, "GET", fileURL, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -209,6 +211,12 @@ func (f *fetcher) download(ctx context.Context, fileURL, dir, target string) err
 	if err := errors.Join(copyErr, closeErr); err != nil {
 		_ = os.Remove(tmpName)
 		return fmt.Errorf("download %s: %w", filepath.Base(target), err)
+	}
+	if !overwrite {
+		if _, err := os.Lstat(target); err == nil {
+			_ = os.Remove(tmpName)
+			return fmt.Errorf("%s: %w", target, fs.ErrExist)
+		}
 	}
 	if err := os.Rename(tmpName, target); err != nil {
 		_ = os.Remove(tmpName)
