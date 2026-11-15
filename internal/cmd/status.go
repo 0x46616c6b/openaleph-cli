@@ -58,6 +58,7 @@ func newStatusCmd(app *App) *cobra.Command {
 	}
 	jf.add(cmd)
 	cmd.AddCommand(newStatusWatchCmd(app))
+	cmd.AddCommand(newStatusCancelCmd(app))
 	return cmd
 }
 
