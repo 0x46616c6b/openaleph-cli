@@ -112,7 +112,7 @@ Collections are referenced by numeric ID or foreign ID.
 | `oa collection download <collection>` | Rebuild a collection as a folder tree |
 | `oa collection access list / grant / revoke` | Show and change which users and groups can read or write a collection |
 | `oa collection xref run / list <collection>` | Cross-reference a collection against other collections and list the matches |
-| `oa collection xref export <collection>` | Export the matches as an Excel file, listed under `/api/2/exports` when ready |
+| `oa collection xref export <collection>` | Export the matches as an Excel file (download it with `oa export download`) |
 | `oa search <query>` | Search entities |
 | `oa export search <query>` | Export search results as a zip archive on the server (same filters as `oa search`) |
 | `oa export list / download <id>` | List your exports and download a finished one (`--overwrite` replaces an existing file) |

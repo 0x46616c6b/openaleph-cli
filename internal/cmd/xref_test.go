@@ -8,13 +8,13 @@ import (
 
 func xrefHandler(t *testing.T, seen *[]string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/api/2/collections":
+		switch r.URL.Path {
+		case "/api/2/collections":
 			fid := r.URL.Query().Get("filter:foreign_id")
 			id := map[string]string{"leak_a": "5", "leak_b": "8"}[fid]
 			reply(w, map[string]any{"total": 1, "results": []any{map[string]any{"id": id, "foreign_id": fid, "label": "Leak " + fid}}})
 			return
-		case r.URL.Path == "/api/2/collections/5":
+		case "/api/2/collections/5":
 			reply(w, map[string]any{"id": "5", "foreign_id": "leak_a", "label": "Leak A"})
 			return
 		}
@@ -109,7 +109,7 @@ func TestXrefExport(t *testing.T) {
 	if len(seen) != 1 || seen[0] != "POST /api/2/collections/5/xref.xlsx?" {
 		t.Fatalf("seen = %v", seen)
 	}
-	if !strings.Contains(stderr, "/api/2/exports") {
+	if !strings.Contains(stderr, "oa export list") {
 		t.Fatalf("stderr = %q", stderr)
 	}
 }

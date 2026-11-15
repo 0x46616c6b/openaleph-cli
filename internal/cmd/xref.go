@@ -141,7 +141,7 @@ func newCollectionXrefExportCmd(app *App) *cobra.Command {
 		Use:   "export <collection>",
 		Short: "Export the cross-referencing matches as an Excel file",
 		Long: "Asks the server to build an Excel file with all matches of the collection. The file is built in the\n" +
-			"background and then listed under your exports (`oa api exports`), from where you can download it.",
+			"background and then listed by `oa export list`, from where `oa export download` saves it.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := app.client()
@@ -156,7 +156,7 @@ func newCollectionXrefExportCmd(app *App) *cobra.Command {
 			if err := c.ExportXref(ctx, str(coll, "id")); err != nil {
 				return err
 			}
-			fmt.Fprintf(app.IO.Err, "Started the export %q\nIt is listed under /api/2/exports when it is ready (`oa api exports`)\n",
+			fmt.Fprintf(app.IO.Err, "Started the export %q\nCheck `oa export list` until it is ready, then `oa export download <id>`\n",
 				str(coll, "label")+" - Cross-reference results")
 			return nil
 		},
