@@ -31,6 +31,7 @@ type crawlOpts struct {
 	parallel    int
 	resume      bool
 	stateFile   string
+	include     []string
 }
 
 func (a *App) crawlDir(ctx context.Context, o crawlOpts) error {
@@ -51,6 +52,7 @@ func (a *App) crawlDir(ctx context.Context, o crawlOpts) error {
 		Index:     !o.noindex,
 		Resume:    o.resume,
 		StateFile: o.stateFile,
+		Include:   o.include,
 		Log:       a.logger(),
 	})
 	if err != nil {
@@ -104,9 +106,13 @@ func newCollectionUploadCmd(app *App) *cobra.Command {
 			"Progress is kept in .openaleph_crawl_state.db (the same format as the Python client), so an\n" +
 			"interrupted upload can be continued with --resume. A new upload refuses to start while a\n" +
 			"state file exists: pass --resume, or remove the file to start over.\n" +
-			"Paths matching a pattern in the .openalephignore file of the directory are skipped.",
+			"Paths matching a pattern in the .openalephignore file of the directory are skipped.\n" +
+			"With --include, only files matching one of the patterns are uploaded, and folders are only\n" +
+			"created when they contain such a file. Patterns are globs (*, ?, [abc]) matched against the\n" +
+			"file name or the path relative to <path>; quote them so the shell does not expand them.",
 		Example: "  $ oa collection upload my_leak ./documents --parallel 4\n" +
-			"  $ oa collection upload my_leak ./documents --resume",
+			"  $ oa collection upload my_leak ./documents --resume\n" +
+			"  $ oa collection upload my_leak ./documents --include '*.pdf' --include '*.docx'",
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			o.collection, o.path = args[0], args[1]
@@ -118,6 +124,7 @@ func newCollectionUploadCmd(app *App) *cobra.Command {
 	f.BoolVar(&o.resume, "resume", false, "Resume from an existing state file")
 	f.StringVar(&o.stateFile, "state-file", "", "Path to the state `file` (for resuming from custom locations)")
 	f.BoolVarP(&o.noindex, "noindex", "i", false, "Do not index documents after ingest")
+	f.StringArrayVar(&o.include, "include", nil, "Only upload files matching this glob `pattern` (repeatable)")
 	f.StringSliceVarP(&o.languages, "language", "l", nil, "Language hint as 2-letter ISO 639 `code` (repeatable)")
 	f.BoolVar(&o.casefile, "casefile", false, "Create the collection as a case file")
 	return cmd

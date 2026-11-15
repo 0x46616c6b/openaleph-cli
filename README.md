@@ -108,7 +108,7 @@ Collections are referenced by numeric ID or foreign ID.
 | `oa collection list / view` | Browse collections |
 | `oa collection create / edit / delete / flush` | Manage collections (`delete` and `flush` need `--yes` in scripts) |
 | `oa collection reindex / reingest` | Re-run indexing or ingest |
-| `oa collection upload <collection> <path>` | Upload a directory, resumable, parallel |
+| `oa collection upload <collection> <path>` | Upload a directory, resumable, parallel, `--include '*.pdf'` to filter |
 | `oa collection download <collection>` | Rebuild a collection as a folder tree |
 | `oa collection access list / grant / revoke` | Show and change which users and groups can read or write a collection |
 | `oa collection xref run / list <collection>` | Cross-reference a collection against other collections and list the matches |

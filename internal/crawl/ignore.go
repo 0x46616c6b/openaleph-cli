@@ -1,7 +1,10 @@
 package crawl
 
 import (
+	"errors"
+	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -67,6 +70,48 @@ func (ig *Ignorer) match(name, pat string) bool {
 		ig.res[pat] = re
 	}
 	return re != nil && re.MatchString(name)
+}
+
+// Includer decides which files are uploaded when include patterns are given.
+// Patterns use the same fnmatch syntax as .openalephignore and match either
+// the path relative to the root or the file name alone, so "*.pdf" and
+// "report-??.pdf" match in any folder, while "2024/*.pdf" needs the path.
+// Directories are never filtered, only the files in them.
+type Includer struct {
+	res []*regexp.Regexp
+}
+
+// NewIncluder compiles the patterns. Without patterns every file is included.
+func NewIncluder(patterns ...string) (*Includer, error) {
+	in := &Includer{}
+	for _, p := range patterns {
+		if p == "" {
+			return nil, errors.New("empty include pattern")
+		}
+		re := translate(p)
+		if re == nil {
+			return nil, fmt.Errorf("invalid include pattern %q", p)
+		}
+		in.res = append(in.res, re)
+	}
+	return in, nil
+}
+
+// Filtering reports whether any include pattern is set.
+func (in *Includer) Filtering() bool { return len(in.res) > 0 }
+
+// Included reports whether the file rel (slash-separated, relative to the root) is uploaded.
+func (in *Includer) Included(rel string) bool {
+	if !in.Filtering() {
+		return true
+	}
+	base := path.Base(rel)
+	for _, re := range in.res {
+		if re.MatchString(rel) || re.MatchString(base) {
+			return true
+		}
+	}
+	return false
 }
 
 // translate converts an fnmatch pattern into a regular expression, like
