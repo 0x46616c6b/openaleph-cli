@@ -10,10 +10,10 @@ import (
 
 // permServer fakes the permissions API of collection 5 ("leak_a"). Like the
 // server, it lists groups without access, drops users without access and
-// skips unknown roles. With admin unset, it hides the email of users.
+// skips unknown roles. Like the server, it never includes email addresses in
+// the listed roles.
 type permServer struct {
 	t       *testing.T
-	admin   bool
 	roles   map[string]map[string]any
 	access  map[string]string // role ID -> read or write
 	updates [][]map[string]any
@@ -45,7 +45,7 @@ func (s *permServer) list() map[string]any {
 	for _, id := range ids {
 		role := map[string]any{}
 		for k, v := range s.roles[id] {
-			if k == "email" && !s.admin {
+			if k == "email" {
 				continue
 			}
 			role[k] = v
@@ -102,7 +102,6 @@ func (s *permServer) handler(w http.ResponseWriter, r *http.Request) {
 
 func TestCollectionAccessList(t *testing.T) {
 	s := newPermServer(t)
-	s.admin = true
 	h := newHarness(t, s.handler)
 	h.login()
 
@@ -110,7 +109,7 @@ func TestCollectionAccessList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "jane@example.org") || !strings.Contains(out, "read") || strings.Contains(out, "Research desk") {
+	if !strings.Contains(out, "Jane Doe") || strings.Contains(out, "jane@example.org") || !strings.Contains(out, "read") || strings.Contains(out, "Research desk") {
 		t.Fatalf("list shows only roles with access:\n%s", out)
 	}
 
@@ -170,7 +169,6 @@ func TestCollectionAccessGrantAndRevoke(t *testing.T) {
 func TestCollectionAccessErrors(t *testing.T) {
 	s := newPermServer(t)
 	s.access["43"] = "read" // lists user "Legal" next to group "Legal"
-	s.admin = true
 	h := newHarness(t, s.handler)
 	h.login()
 
