@@ -21,6 +21,11 @@ func newEntityCmd(app *App) *cobra.Command {
 		newEntityAnalyzeCmd(app),
 		newEntityTranscribeCmd(app),
 		newEntityTranslateCmd(app),
+		newEntitySimilarCmd(app),
+		newEntityExpandCmd(app),
+		newEntityMentionsCmd(app),
+		newEntityNearbyCmd(app),
+		newEntityTagsCmd(app),
 	)
 	return cmd
 }
