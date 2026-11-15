@@ -115,7 +115,8 @@ Collections are referenced by numeric ID or foreign ID.
 | `oa entity view / delete / download` | Work with single entities |
 | `oa entity stream / write / write-many` | Export and import entities as JSON lines |
 | `oa entity map <mapping.yml>` | Create entities from CSV files with an `ftm map` mapping, printed as JSON lines |
-| `oa entityset list / items / create / delete` | Work with lists and other entity sets |
+| `oa entityset list / view / items / create / edit / delete` | Work with lists and other entity sets |
+| `oa entityset add / remove / write` | Add or remove existing entities, or write new entities into an entity set from JSON lines |
 | `oa mapping list / view / create / update / delete` | Manage entity mappings stored on the server (`delete` needs `--yes` in scripts) |
 | `oa mapping trigger / flush` | Generate entities from a mapping, or delete what it generated |
 | `oa api <path>` | Call any API endpoint with authentication |
