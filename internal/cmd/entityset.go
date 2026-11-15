@@ -57,6 +57,10 @@ func newEntitySetListCmd(app *App) *cobra.Command {
 			if jf.enabled() {
 				return jf.write(app, items)
 			}
+			if len(items) == 0 {
+				fmt.Fprintln(app.IO.Err, "No entity sets found")
+				return nil
+			}
 			t := output.NewTable(app.IO.Out, "ID", "TYPE", "LABEL", "COLLECTION")
 			for _, it := range items {
 				coll, _ := it["collection"].(map[string]any)
@@ -97,6 +101,10 @@ func newEntitySetItemsCmd(app *App) *cobra.Command {
 			}
 			if jf.enabled() {
 				return jf.write(app, items)
+			}
+			if len(items) == 0 {
+				fmt.Fprintln(app.IO.Err, "No items found")
+				return nil
 			}
 			t := output.NewTable(app.IO.Out, "ID", "SCHEMA", "NAME")
 			for _, it := range items {

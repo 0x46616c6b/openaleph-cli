@@ -90,6 +90,10 @@ func (j *jsonFlags) add(cmd *cobra.Command) {
 func (j *jsonFlags) enabled() bool { return j.fields != "" || j.jq != "" }
 
 func (j *jsonFlags) write(a *App, v any) error {
+	// An empty list is printed as [] and not as null.
+	if items, ok := v.([]api.Object); ok && items == nil {
+		v = []api.Object{}
+	}
 	var fields []string
 	for _, f := range strings.Split(j.fields, ",") {
 		if f = strings.TrimSpace(f); f != "" {

@@ -21,7 +21,7 @@ func newCollectionAccessCmd(app *App) *cobra.Command {
 		Short:   "Manage who can read and write a collection",
 		Long: "Show and change the access of users and groups to a collection. This needs write access to the\n" +
 			"collection. Admins also see and can change the system roles \"guest\" (everyone, also without login)\n" +
-			"and \"user\" (every logged-in user), and see the email addresses of users.\n\n" +
+			"and \"user\" (every logged-in user).\n\n" +
 			"A user or group is given as a role ID, as the email address of a user, or by the name or foreign ID\n" +
 			"of a role that `oa collection access list --all` shows.",
 	}
@@ -65,10 +65,10 @@ func newCollectionAccessListCmd(app *App) *cobra.Command {
 				fmt.Fprintln(app.IO.Err, "Nobody has access through a permission (use --all to list the groups you can add)")
 				return nil
 			}
-			t := output.NewTable(app.IO.Out, "ROLE ID", "TYPE", "NAME", "EMAIL", "ACCESS")
+			t := output.NewTable(app.IO.Out, "ROLE ID", "TYPE", "NAME", "ACCESS")
 			for _, p := range perms {
 				r := permRole(p)
-				t.Row(str(r, "id"), str(r, "type"), roleName(r), str(r, "email"), accessLevel(p))
+				t.Row(str(r, "id"), str(r, "type"), roleName(r), accessLevel(p))
 			}
 			return t.Flush()
 		},
@@ -154,7 +154,7 @@ func setAccess(ctx context.Context, app *App, collRef, who string, read, write b
 		// A user without access is no longer listed.
 		ok = true
 	} else if permState(before) != permState(after) {
-		// The change is visible, but not the user: only admins see email addresses.
+		// The change is visible, but not the user: the server lists users without their email address.
 		ok = true
 	}
 	if !ok {
@@ -175,9 +175,9 @@ func accessTarget(perms []api.Object, who string) (api.PermissionUpdate, func(ap
 	case who == "":
 		return api.PermissionUpdate{}, nil, errors.New("no user or group given")
 	case strings.Contains(who, "@"):
-		return api.PermissionUpdate{Email: who}, func(r api.Object) bool {
-			return strings.EqualFold(str(r, "email"), who)
-		}, nil
+		// The permissions never include email addresses, so a change for an
+		// email address is only detected by comparing before and after.
+		return api.PermissionUpdate{Email: who}, func(api.Object) bool { return false }, nil
 	}
 	if _, err := strconv.ParseUint(who, 10, 64); err == nil {
 		return api.PermissionUpdate{RoleID: who}, func(r api.Object) bool { return str(r, "id") == who }, nil
