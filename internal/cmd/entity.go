@@ -17,6 +17,10 @@ func newEntityCmd(app *App) *cobra.Command {
 		newEntityWriteManyCmd(app),
 		newEntityMapCmd(app),
 		newEntityDownloadCmd(app),
+		newEntityReingestCmd(app),
+		newEntityAnalyzeCmd(app),
+		newEntityTranscribeCmd(app),
+		newEntityTranslateCmd(app),
 	)
 	return cmd
 }
