@@ -30,6 +30,7 @@ func newCollectionCmd(app *App) *cobra.Command {
 		newCollectionReindexCmd(app),
 		newCollectionReingestCmd(app),
 		newCollectionAccessCmd(app),
+		newCollectionXrefCmd(app),
 		newCollectionUploadCmd(app),
 		newCollectionDownloadCmd(app),
 	)
