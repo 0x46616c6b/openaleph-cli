@@ -18,4 +18,4 @@ jobs:
       pull-requests: write
     steps:
       - name: Apply labels
-        uses: release-drafter/release-drafter/autolabeler@v7.10.0
+        uses: release-drafter/release-drafter/autolabeler@v7.11.0
